@@ -1,0 +1,1 @@
+LODBC is an ODBC driver for Go using SYSCALL.  It has been tested on Windows 7 X64 and Windows Server 2008 R2 and SQL Server 2008 using SQL Native Client 10.
