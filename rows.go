@@ -183,7 +183,7 @@ func (rows *Rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
 	case odbc.SQL_CHAR, odbc.SQL_VARCHAR, odbc.SQL_LONGVARCHAR, odbc.SQL_WCHAR, odbc.SQL_WVARCHAR:
 		value := make([]uint16, columnDef.Length * 2 + 2)
 		valuePtr := uintptr(unsafe.Pointer(&value[0]))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_WCHAR, valuePtr, int64(columnDef.Length * 2 + 2), &fieldInd)	
+		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_WCHAR, valuePtr, odbc.SQLLEN(columnDef.Length * 2 + 2), &fieldInd)	
 		return formatGetFieldReturn(syscall.UTF16ToString(value), fieldInd, ret)
 	case odbc.SQL_DATE:
 		var value odbc.SQL_DATE_STRUCT

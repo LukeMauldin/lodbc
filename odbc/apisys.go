@@ -102,7 +102,7 @@ func SQLSetStmtAttr(statementHandle syscall.Handle, attribute int, valuePtr int3
 	return
 }
 
-func SQLBindCol(statementHandle syscall.Handle, columnNumber uint16, targetType CDataType, targetValuePtr uintptr, bufferLength int32, ind *SQLValueIndicator) (ret SQLReturn) {
+func SQLBindCol(statementHandle syscall.Handle, columnNumber uint16, targetType CDataType, targetValuePtr uintptr, bufferLength SQLLEN, ind *SQLValueIndicator) (ret SQLReturn) {
 	r0, _, _ := syscall.Syscall6(procSQLBindCol.Addr(), 6, uintptr(statementHandle), uintptr(columnNumber), uintptr(targetType), uintptr(targetValuePtr), uintptr(bufferLength), uintptr(unsafe.Pointer(ind)))
 	ret = SQLReturn(r0)
 	return
@@ -120,7 +120,7 @@ func SQLEndTran(handleType SQLHandle, handle syscall.Handle, completionType SQLT
 	return
 }
 
-func SQLBindParameter(statementHandle syscall.Handle, parameterNumber uint16, inputOutputType SQLBindParameterType, valueType CDataType, parameterType SQLDataType, columnSize uint64, decimalDigits int16, parameterValue uintptr, bufferLength int, ind *SQLValueIndicator) (ret SQLReturn) {
+func SQLBindParameter(statementHandle syscall.Handle, parameterNumber SQLUSMALLINT, inputOutputType SQLBindParameterType, valueType CDataType, parameterType SQLDataType, columnSize SQLULEN, decimalDigits SQLSMALLINT, parameterValue SQLPOINTER, bufferLength SQLLEN, ind *SQLValueIndicator) (ret SQLReturn) {
 	r0, _, _ := syscall.Syscall12(procSQLBindParameter.Addr(), 10, uintptr(statementHandle), uintptr(parameterNumber), uintptr(inputOutputType), uintptr(valueType), uintptr(parameterType), uintptr(columnSize), uintptr(decimalDigits), uintptr(parameterValue), uintptr(bufferLength), uintptr(unsafe.Pointer(ind)), 0, 0)
 	ret = SQLReturn(r0)
 	return
@@ -150,7 +150,7 @@ func SQLGetDiagRec(handleType SQLHandle, inputHandle syscall.Handle, recNumber i
 	return
 }
 
-func SQLColAttribute(statementHandle syscall.Handle, columnNumber uint16, fieldIdentifier SQLDescriptor, characterAttribute uintptr, bufferLength int16, stringLengthPtr *int16, numericAttributePtr *int32) (ret SQLReturn) {
+func SQLColAttribute(statementHandle syscall.Handle, columnNumber uint16, fieldIdentifier SQLDescriptor, characterAttribute uintptr, bufferLength SQLSMALLINT, stringLengthPtr *int16, numericAttributePtr *int32) (ret SQLReturn) {
 	r0, _, _ := syscall.Syscall9(procSQLColAttributeW.Addr(), 7, uintptr(statementHandle), uintptr(columnNumber), uintptr(fieldIdentifier), uintptr(characterAttribute), uintptr(bufferLength), uintptr(unsafe.Pointer(stringLengthPtr)), uintptr(unsafe.Pointer(numericAttributePtr)), 0, 0)
 	ret = SQLReturn(r0)
 	return
@@ -162,7 +162,7 @@ func SQLNumResultCols(statementHandle syscall.Handle, columnCount *int16) (ret S
 	return
 }
 
-func SQLGetData(statementHandle syscall.Handle, colNum uint16, targetType CDataType, targetValuePtr uintptr, bufferLength int64, ind *SQLValueIndicator) (ret SQLReturn) {
+func SQLGetData(statementHandle syscall.Handle, colNum uint16, targetType CDataType, targetValuePtr uintptr, bufferLength SQLLEN, ind *SQLValueIndicator) (ret SQLReturn) {
 	r0, _, _ := syscall.Syscall6(procSQLGetData.Addr(), 6, uintptr(statementHandle), uintptr(colNum), uintptr(targetType), uintptr(targetValuePtr), uintptr(bufferLength), uintptr(unsafe.Pointer(ind)))
 	ret = SQLReturn(r0)
 	return

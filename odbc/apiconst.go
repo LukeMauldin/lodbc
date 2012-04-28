@@ -1,9 +1,11 @@
 package odbc
 
-import ()
+import (
+	"syscall"
+)
 
 //SQL Handle const
-type SQLHandle int16
+type SQLHandle syscall.Handle
 
 //SQL general types
 type SQLCHAR uint8
@@ -11,8 +13,10 @@ type SQLSCHAR int8
 type SQLSMALLINT int16
 type SQLUSMALLINT uint16
 type SQLINTEGER int32
-type SQLPOINTER uintptr
+type SQLPOINTER syscall.Handle
 type SQLUINTEGER uint32
+type SQLLEN int64
+type SQLULEN uint64
 
 const (
 	SQL_HANDLE_ENV  = 1
@@ -59,7 +63,7 @@ const (
 )
 
 //SQL data types
-type SQLDataType int16
+type SQLDataType SQLSMALLINT 
 
 const (
 	SQL_UNKNOWN_TYPE  = 0
@@ -88,7 +92,7 @@ const (
 )
 
 //C data types
-type CDataType int16
+type CDataType SQLSMALLINT
 
 const (
 	SQL_C_CHAR      = SQL_CHAR
@@ -120,7 +124,7 @@ const (
 )
 
 //SQLBindParameter options
-type SQLBindParameterType int16
+type SQLBindParameterType SQLSMALLINT
 
 const (
 	SQL_PARAM_TYPE_UNKNOWN = 0
@@ -152,7 +156,7 @@ const (
 )
 
 //Special length/indicator values
-type SQLValueIndicator int64
+type SQLValueIndicator SQLLEN
 
 const (
 	SQL_NULL_DATA    = -1

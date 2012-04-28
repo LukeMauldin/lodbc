@@ -1,7 +1,7 @@
 package lodbc
 
 import (
-	"time"
+	_ "time"
 )
 
 type IConnection interface {
@@ -14,14 +14,6 @@ type IConnection interface {
 }
 
 type IStatement interface {
-	BindInt(index int, value int, direction ParameterDirection) (error)
-	BindInt64(index int, value int64, direction ParameterDirection) (error)
-	BindBool(index int, value bool, direction ParameterDirection) (error)
-	BindNumeric(index int, value float64, precision int, scale int, direction ParameterDirection) (error)
-	BindDate(index int, value time.Time, direction ParameterDirection) (error)
-	BindDateTime(index int, value time.Time, direction ParameterDirection) (error)
-	BindString(index int, value string, length int, direction ParameterDirection) (error)
-	BindNull(index int, direction ParameterDirection) error
 	Query(query string) (IRows, error) 
 	QueryWithParams(query string, parameters ...BindParameter) (IRows, error)
 	Exec(query string) (error)
