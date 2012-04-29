@@ -6,6 +6,7 @@ import (
 	 "time"
 	"unsafe"
 	"fmt"
+	"reflect"
 )
 
 type Statement struct {
@@ -32,9 +33,8 @@ type Statement struct {
 }
 
 func (stmt *Statement) bindInt(index int, value int, direction ParameterDirection) error {
-	stmt.bindValues[index] = value	
-	ptrValue := stmt.bindValues[index].(int)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_LONG, odbc.SQL_INTEGER, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(&ptrValue)), 0, nil)
+	stmt.bindValues[index] = &value	
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_LONG, odbc.SQL_INTEGER, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*int))), 0, nil)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
@@ -43,9 +43,8 @@ func (stmt *Statement) bindInt(index int, value int, direction ParameterDirectio
 
 
 func (stmt *Statement) bindInt64(index int, value int64, direction ParameterDirection) error {
-	stmt.bindValues[index] = value
-	ptrValue := stmt.bindValues[index].(int64)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_LONG, odbc.SQL_BIGINT, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(&ptrValue)), 0, nil)
+	stmt.bindValues[index] = &value
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_LONG, odbc.SQL_BIGINT, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*int64))), 0, nil)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
@@ -53,9 +52,8 @@ func (stmt *Statement) bindInt64(index int, value int64, direction ParameterDire
 }
 
 func (stmt *Statement) bindBool(index int, value bool, direction ParameterDirection) error {
-	stmt.bindValues[index] = value
-	ptrValue := stmt.bindValues[index].(bool)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_BIT, odbc.SQL_BIT, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(&ptrValue)), 0, nil)
+	stmt.bindValues[index] = &value
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_BIT, odbc.SQL_BIT, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*bool))), 0, nil)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
@@ -63,9 +61,8 @@ func (stmt *Statement) bindBool(index int, value bool, direction ParameterDirect
 }
 
 func (stmt *Statement) bindNumeric(index int, value float64, precision int, scale int, direction ParameterDirection) error {
-	stmt.bindValues[index] = value
-	ptrValue := stmt.bindValues[index].(float64)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DOUBLE, odbc.SQL_DOUBLE, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(&ptrValue)), 0, nil)
+	stmt.bindValues[index] = &value
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DOUBLE, odbc.SQL_DOUBLE, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*float64))), 0, nil)
 	/* Must convert to SQL_NUMERIC_STRUCT for decimal to work - http://support.microsoft.com/kb/181254
 	 ret := odbc.SQLBindParameter(stmt.handle, uint16(index), direction.SQLBindParameterType(), odbc.SQL_C_NUMERIC, odbc.SQL_DECIMAL, uint64(precision), int16(scale), uintptr(unsafe.Pointer(&bindVal)), 0, nil)
 	odbc.SQLSetDescField(stmt.stmtDescHandle, odbc.SQLSMALLINT(index), odbc.SQL_DESC_TYPE, odbc.SQL_NUMERIC, 0)
@@ -83,9 +80,8 @@ func (stmt *Statement) bindDate(index int, value time.Time, direction ParameterD
 	bindVal.Month = odbc.SQLUSMALLINT(value.Month())
 	bindVal.Day = odbc.SQLUSMALLINT(value.Day())
 	
-	stmt.bindValues[index] = bindVal
-	ptrValue := stmt.bindValues[index].(odbc.SQL_DATE_STRUCT)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DATE, odbc.SQL_DATE, 10, 0, odbc.SQLPOINTER(unsafe.Pointer(&ptrValue)), 6, nil)
+	stmt.bindValues[index] = &bindVal
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DATE, odbc.SQL_DATE, 10, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*odbc.SQL_DATE_STRUCT))), 6, nil)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, bindVal))
 	}
@@ -101,9 +97,8 @@ func (stmt *Statement) bindDateTime(index int, value time.Time, direction Parame
 	bindVal.Minute = odbc.SQLUSMALLINT(value.Minute())
 	bindVal.Second = odbc.SQLUSMALLINT(value.Second())
 
-	stmt.bindValues[index] = bindVal
-	ptrValue := stmt.bindValues[index].(odbc.SQL_TIMESTAMP_STRUCT)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_TIMESTAMP, odbc.SQL_TIMESTAMP, 23, 0, odbc.SQLPOINTER(unsafe.Pointer(&ptrValue)), 16, nil)
+	stmt.bindValues[index] = &bindVal
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_TIMESTAMP, odbc.SQL_TIMESTAMP, 23, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*odbc.SQL_TIMESTAMP_STRUCT))), 16, nil)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, bindVal))
 	}
@@ -114,9 +109,8 @@ func (stmt *Statement) bindString(index int, value string, length int, direction
 	if length == 0 {
 		length = len(value)
 	}
-	stmt.bindValues[index] = syscall.StringToUTF16(value)
-	ptrValue := stmt.bindValues[index].([]uint16)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_WCHAR, odbc.SQL_VARCHAR, odbc.SQLULEN(length), 0, odbc.SQLPOINTER(unsafe.Pointer(&ptrValue[0])), 0, nil)
+	stmt.bindValues[index] = syscall.StringToUTF16Ptr(value)
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_WCHAR, odbc.SQL_VARCHAR, odbc.SQLULEN(length), 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*uint16))), 0, nil)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
@@ -258,7 +252,7 @@ func (stmt *Statement) ExecWithParams(query string, parameters ...BindParameter)
 func (stmt *Statement) bindParameters(parameters ...BindParameter) error {
 //Call bind statements based on the type of the parameter
 	for index, parameter := range parameters {
-		if parameter.Value == nil {
+		if isNil(parameter.Value) {
 			err := stmt.bindNull(index + 1, parameter.Direction)
 			if err != nil {
 				return err
@@ -424,3 +418,14 @@ func (stmt *Statement) formatBindValues() string {
 	} 
 	return strings.Join(strValues, ", ")
 } */
+
+//Checks the type v for nil
+func isNil(v interface{}) bool {
+	val := reflect.ValueOf(v)
+	switch val.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
+		reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
+		return val.IsNil()
+	}
+	return false
+}
