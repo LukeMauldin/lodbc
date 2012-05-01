@@ -6,7 +6,7 @@ import (
 
 //Checks for SQL error
 func IsError(ret odbc.SQLReturn) bool {
-	return !(ret == odbc.SQL_SUCCESS || ret == odbc.SQL_SUCCESS_WITH_INFO)
+	return !(ret == odbc.SQL_SUCCESS || ret == odbc.SQL_SUCCESS_WITH_INFO || ret == odbc.SQL_NO_DATA)
 }
 
 //Converts SQL_NUMERIC_STRUCT to float
