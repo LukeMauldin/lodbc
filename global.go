@@ -7,7 +7,7 @@ import (
 
 //Global variables
 var (
- 	QUERY_TIMEOUT = 120 //120 seconds
+ 	QUERY_TIMEOUT = 240 //240 seconds
 ) 
 
 //Shared global environment

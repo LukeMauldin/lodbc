@@ -7,6 +7,7 @@ import (
 	"unsafe"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type Statement struct {
@@ -109,8 +110,8 @@ func (stmt *Statement) bindString(index int, value string, length int, direction
 	if length == 0 {
 		length = len(value)
 	}
-	stmt.bindValues[index] = syscall.StringToUTF16Ptr(value)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_WCHAR, odbc.SQL_VARCHAR, odbc.SQLULEN(length), 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*uint16))), 0, nil)
+	stmt.bindValues[index] = syscall.StringToUTF16(value)
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_WCHAR, odbc.SQL_VARCHAR, odbc.SQLULEN(length), 0, odbc.SQLPOINTER(unsafe.Pointer(&stmt.bindValues[index].([]uint16)[0])), 0, nil)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
@@ -185,21 +186,21 @@ func (stmt *Statement) Query(query string) (IRows, error) {
 
 	//Execute SQL statement
 	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(query), odbc.SQL_NTS)
-	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", query))
+	if IsError(ret) {		
+		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", query, stmt.formatBindValues()))
 	}
 
 	//Get row descriptor handle
 	var descRowHandle syscall.Handle
 	ret = odbc.SQLGetStmtAttr(stmt.handle, odbc.SQL_ATTR_APP_ROW_DESC, uintptr(unsafe.Pointer(&descRowHandle)), 0, nil)
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", query))
+		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", query, stmt.formatBindValues()))
 	}
 
 	//Get definition of result columns
 	resultColumnDefs, ret := stmt.getResultColumnDefintion()
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", query))
+		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", query, stmt.formatBindValues()))
 	}
 
 	//Create rows
@@ -232,7 +233,7 @@ func (stmt *Statement) Exec(query string) error {
 	//Execute SQL statement
 	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(query), odbc.SQL_NTS)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", query))
+		return ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\n Bind Values: %v", query, stmt.formatBindValues()))
 	}
 	
 	return nil
@@ -400,24 +401,35 @@ func (stmt *Statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 
 	return resultColumnDefs, odbc.SQL_SUCCESS
 }
-/*
+
 func (stmt *Statement) formatBindValues() string {
 	strValues := make([]string, 0, len(stmt.bindValues))
 	for index, bvalue := range stmt.bindValues {
+		//Skip 0 index
+		if index == 0 {
+			continue
+		}
 		if bvalue == nil {
-			strValues := append(strValues, fmt.Sprintf("%v: %v", index, "nil"))
+			strValues = append(strValues, fmt.Sprintf("%v: <nil>", index))
 		} else {
 			switch val := bvalue.(type) {
-				case *int, *int64, *bool, *string, *float64, *odbc.SQL_DATE_STRUCT, *odbc.SQL_TIMESTAMP_STRUCT:
-					strValues := append(strValues, fmt.Sprintf("%v: %v", *val, "nil"))		
+				case *int, *int64, *bool, *float64, *odbc.SQL_DATE_STRUCT, *odbc.SQL_TIMESTAMP_STRUCT:
+					refValue := reflect.ValueOf(val)
+					interfaceValue := reflect.Indirect(refValue).Interface()
+					name := reflect.TypeOf(interfaceValue).Name()
+					strValues = append(strValues, fmt.Sprintf("%v: <%v> {%v}", index, name, interfaceValue))		
+				case []uint16:
+					str := syscall.UTF16ToString(val)
+					strValues = append(strValues, fmt.Sprintf("%v: <string> {%v}", index, str))	
 				default:
-					strValues := append(strValues, fmt.Sprintf("%v: Unknown type: %t", index, val))	
+					strValues = append(strValues, fmt.Sprintf("%v: Unknown type: <%t>", index, val))	
 			}
 			
 		}
 	} 
+	
 	return strings.Join(strValues, ", ")
-} */
+} 
 
 //Checks the type v for nil
 func isNil(v interface{}) bool {
