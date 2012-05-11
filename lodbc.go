@@ -1,7 +1,7 @@
 package lodbc
 
 import (
-	"github.com/LukeMauldin/go-lodbc/odbc"
+	"github.com/lukemauldin/go-lodbc/odbc"
 	"strconv"
 )
 
