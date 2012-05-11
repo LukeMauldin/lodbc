@@ -4,7 +4,7 @@ import (
 	"syscall"
 	"fmt"
 	"unsafe"
-	"github.com/lukemauldin/lodbc/odbc"
+	"github.com/LukeMauldin/lodbc/odbc"
 	"strings"
 )
 
