@@ -1,49 +1,48 @@
 package lodbc
 
 import (
-	"github.com/LukeMauldin/lodbc/odbc"
-	"syscall"
-	 "time"
-	"unsafe"
 	"fmt"
+	"github.com/LukeMauldin/lodbc/odbc"
 	"reflect"
 	"strings"
+	"syscall"
+	"time"
+	"unsafe"
 )
 
-type Statement struct {
+type statement struct {
 	//Statement handle
 	handle syscall.Handle
-	
+
 	//Statement descriptor handle
 	stmtDescHandle syscall.Handle
-	
+
 	//Active query for the statement
 	rows IRows
-	
+
 	//Is closed -- allows Close() to be called multiple times without error
 	isClosed bool
-	
+
 	//Current executing sql statement
 	sqlStmt string
-	
+
 	//Store bind parameter values in a map to be sure they stay in scope
 	//bindValues map[int]interface{}
-	
+
 	//Array to store bind parameter values to be sure they stay in scope
 	bindValues []interface{}
 }
 
-func (stmt *Statement) bindInt(index int, value int, direction ParameterDirection) error {
-	stmt.bindValues[index] = &value	
+func (stmt *statement) bindInt(index int, value int, direction ParameterDirection) error {
+	stmt.bindValues[index] = &value
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_LONG, odbc.SQL_INTEGER, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*int))), 0, nil)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
 	return nil
-} 
+}
 
-
-func (stmt *Statement) bindInt64(index int, value int64, direction ParameterDirection) error {
+func (stmt *statement) bindInt64(index int, value int64, direction ParameterDirection) error {
 	stmt.bindValues[index] = &value
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_LONG, odbc.SQL_BIGINT, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*int64))), 0, nil)
 	if IsError(ret) {
@@ -52,7 +51,7 @@ func (stmt *Statement) bindInt64(index int, value int64, direction ParameterDire
 	return nil
 }
 
-func (stmt *Statement) bindBool(index int, value bool, direction ParameterDirection) error {
+func (stmt *statement) bindBool(index int, value bool, direction ParameterDirection) error {
 	stmt.bindValues[index] = &value
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_BIT, odbc.SQL_BIT, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*bool))), 0, nil)
 	if IsError(ret) {
@@ -61,7 +60,7 @@ func (stmt *Statement) bindBool(index int, value bool, direction ParameterDirect
 	return nil
 }
 
-func (stmt *Statement) bindNumeric(index int, value float64, precision int, scale int, direction ParameterDirection) error {
+func (stmt *statement) bindNumeric(index int, value float64, precision int, scale int, direction ParameterDirection) error {
 	stmt.bindValues[index] = &value
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DOUBLE, odbc.SQL_DOUBLE, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*float64))), 0, nil)
 	/* Must convert to SQL_NUMERIC_STRUCT for decimal to work - http://support.microsoft.com/kb/181254
@@ -75,12 +74,12 @@ func (stmt *Statement) bindNumeric(index int, value float64, precision int, scal
 	return nil
 }
 
-func (stmt *Statement) bindDate(index int, value time.Time, direction ParameterDirection) error {
+func (stmt *statement) bindDate(index int, value time.Time, direction ParameterDirection) error {
 	var bindVal odbc.SQL_DATE_STRUCT
 	bindVal.Year = odbc.SQLSMALLINT(value.Year())
 	bindVal.Month = odbc.SQLUSMALLINT(value.Month())
 	bindVal.Day = odbc.SQLUSMALLINT(value.Day())
-	
+
 	stmt.bindValues[index] = &bindVal
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DATE, odbc.SQL_DATE, 10, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*odbc.SQL_DATE_STRUCT))), 6, nil)
 	if IsError(ret) {
@@ -89,7 +88,7 @@ func (stmt *Statement) bindDate(index int, value time.Time, direction ParameterD
 	return nil
 }
 
-func (stmt *Statement) bindDateTime(index int, value time.Time, direction ParameterDirection) error {
+func (stmt *statement) bindDateTime(index int, value time.Time, direction ParameterDirection) error {
 	var bindVal odbc.SQL_TIMESTAMP_STRUCT
 	bindVal.Year = odbc.SQLSMALLINT(value.Year())
 	bindVal.Month = odbc.SQLUSMALLINT(value.Month())
@@ -106,7 +105,7 @@ func (stmt *Statement) bindDateTime(index int, value time.Time, direction Parame
 	return nil
 }
 
-func (stmt *Statement) bindString(index int, value string, length int, direction ParameterDirection) error {
+func (stmt *statement) bindString(index int, value string, length int, direction ParameterDirection) error {
 	if length == 0 {
 		length = len(value)
 	}
@@ -118,11 +117,11 @@ func (stmt *Statement) bindString(index int, value string, length int, direction
 	return nil
 }
 
-func (stmt *Statement) bindNull(index int, direction ParameterDirection) error {
+func (stmt *statement) bindNull(index int, direction ParameterDirection) error {
 	return stmt.bindNullParam(index, odbc.SQL_WCHAR, direction)
 }
 
-func (stmt *Statement) bindNullParam(index int, paramType odbc.SQLDataType, direction ParameterDirection) error {
+func (stmt *statement) bindNullParam(index int, paramType odbc.SQLDataType, direction ParameterDirection) error {
 	var nullDataInd odbc.SQLValueIndicator
 	nullDataInd = odbc.SQL_NULL_DATA
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DEFAULT, paramType, 1, 0, 0, 0, &nullDataInd)
@@ -132,13 +131,13 @@ func (stmt *Statement) bindNullParam(index int, paramType odbc.SQLDataType, dire
 	return nil
 }
 
-func (stmt *Statement) Close() error {
+func (stmt *statement) Close() error {
 
 	//Verify that stmtHandle is valid
 	if stmt.handle == 0 {
 		return nil
 	}
-	
+
 	//Verify that statement has not already been closed
 	if stmt.isClosed {
 		return nil
@@ -152,7 +151,7 @@ func (stmt *Statement) Close() error {
 		err = stmt.rows.Close()
 		isError = true
 	}
-	
+
 	//Clear any bind values
 	stmt.bindValues = nil
 
@@ -167,26 +166,26 @@ func (stmt *Statement) Close() error {
 	if isError {
 		return err
 	}
-	
+
 	//Mark the rows as closed
 	stmt.isClosed = true
-	
+
 	return nil
 }
 
-func (stmt *Statement) Query(query string) (IRows, error) {
+func (stmt *statement) Query(query string) (IRows, error) {
 	//If rows is not nil, close rows and set to nil
 	if stmt.rows != nil {
 		stmt.rows.Close()
 		stmt.rows = nil
 	}
-	
+
 	//Store the SQL statement being executed
 	stmt.sqlStmt = query
 
 	//Execute SQL statement
 	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(query), odbc.SQL_NTS)
-	if IsError(ret) {		
+	if IsError(ret) {
 		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", query, stmt.formatBindValues()))
 	}
 
@@ -204,29 +203,29 @@ func (stmt *Statement) Query(query string) (IRows, error) {
 	}
 
 	//Create rows
-	stmt.rows = &Rows{handle: stmt.handle, descHandle: descRowHandle, isBeforeFirst: true, ResultColumnDefs: resultColumnDefs, sqlStmt: query}
-	
+	stmt.rows = &rows{handle: stmt.handle, descHandle: descRowHandle, isBeforeFirst: true, ResultColumnDefs: resultColumnDefs, sqlStmt: query}
+
 	return stmt.rows, nil
 }
 
-func (stmt *Statement) QueryWithParams(query string, parameters ...BindParameter) (IRows, error) {
+func (stmt *statement) QueryWithParams(query string, parameters ...BindParameter) (IRows, error) {
 	//Clear any existing bind values
-	stmt.bindValues = make([]interface{}, len(parameters) + 1)
+	stmt.bindValues = make([]interface{}, len(parameters)+1)
 
 	//Bind the parameters
 	stmt.bindParameters(parameters...)
-	
+
 	//Execute the query
 	return stmt.Query(query)
 }
 
-func (stmt *Statement) Exec(query string) error {
+func (stmt *statement) Exec(query string) error {
 	//If rows is not nil, close rows and set to nil
 	if stmt.rows != nil {
 		stmt.rows.Close()
 		stmt.rows = nil
 	}
-	
+
 	//Store the SQL statement being executed
 	stmt.sqlStmt = query
 
@@ -235,120 +234,120 @@ func (stmt *Statement) Exec(query string) error {
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\n Bind Values: %v", query, stmt.formatBindValues()))
 	}
-	
+
 	return nil
 }
 
-func (stmt *Statement) ExecWithParams(query string, parameters ...BindParameter) (error) {
+func (stmt *statement) ExecWithParams(query string, parameters ...BindParameter) error {
 	//Clear any existing bind values
-	stmt.bindValues = make([]interface{}, len(parameters) + 1)
+	stmt.bindValues = make([]interface{}, len(parameters)+1)
 
 	//Bind the parameters
 	stmt.bindParameters(parameters...)
-	
+
 	//Execute the statement
 	return stmt.Exec(query)
 }
 
-func (stmt *Statement) bindParameters(parameters ...BindParameter) error {
-//Call bind statements based on the type of the parameter
+func (stmt *statement) bindParameters(parameters ...BindParameter) error {
+	//Call bind statements based on the type of the parameter
 	for index, parameter := range parameters {
 		if isNil(parameter.Value) {
-			err := stmt.bindNull(index + 1, parameter.Direction)
+			err := stmt.bindNull(index+1, parameter.Direction)
 			if err != nil {
 				return err
 			}
 			continue
 		}
-		switch value := parameter.Value.(type) {	    
-			case nil:
-				err := stmt.bindNull(index + 1, parameter.Direction)
+		switch value := parameter.Value.(type) {
+		case nil:
+			err := stmt.bindNull(index+1, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case bool:
+			err := stmt.bindBool(index+1, value, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case *bool:
+			err := stmt.bindBool(index+1, *value, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case int:
+			err := stmt.bindInt(index+1, value, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case *int:
+			err := stmt.bindInt(index+1, *value, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case int64:
+			err := stmt.bindInt64(index+1, value, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case *int64:
+			err := stmt.bindInt64(index+1, *value, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case float64:
+			err := stmt.bindNumeric(index+1, value, parameter.Precision, parameter.Scale, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case *float64:
+			err := stmt.bindNumeric(index+1, *value, parameter.Precision, parameter.Scale, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case string:
+			err := stmt.bindString(index+1, value, parameter.Length, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case *string:
+			err := stmt.bindString(index+1, *value, parameter.Length, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case time.Time:
+			if parameter.DateOnly {
+				err := stmt.bindDate(index+1, value, parameter.Direction)
 				if err != nil {
 					return err
 				}
-			case bool:
-				err := stmt.bindBool(index + 1, value, parameter.Direction)
+			} else {
+				err := stmt.bindDateTime(index+1, value, parameter.Direction)
 				if err != nil {
 					return err
 				}
-			case *bool:
-				err := stmt.bindBool(index + 1, *value, parameter.Direction)
-				if err != nil {
-					return err
-				}				
-			case int:
-				err := stmt.bindInt(index + 1, value, parameter.Direction)		
-				if err != nil {
-					return err
-				}	
-			case *int:
-				err := stmt.bindInt(index + 1, *value, parameter.Direction)		
-				if err != nil {
-					return err
-				}	
-			case int64:
-				err := stmt.bindInt64(index + 1, value, parameter.Direction)
+			}
+		case *time.Time:
+			if parameter.DateOnly {
+				err := stmt.bindDate(index+1, *value, parameter.Direction)
 				if err != nil {
 					return err
 				}
-			case *int64:
-				err := stmt.bindInt64(index + 1, *value, parameter.Direction)
+			} else {
+				err := stmt.bindDateTime(index+1, *value, parameter.Direction)
 				if err != nil {
 					return err
 				}
-			case float64:
-				err := stmt.bindNumeric(index + 1, value, parameter.Precision, parameter.Scale, parameter.Direction)
-				if err != nil {
-					return err
-				}
-			case *float64:
-				err := stmt.bindNumeric(index + 1, *value, parameter.Precision, parameter.Scale, parameter.Direction)
-				if err != nil {
-					return err
-				}
-			case string:
-				err := stmt.bindString(index + 1, value, parameter.Length, parameter.Direction)
-				if err != nil {
-					return err
-				}
-			case *string:
-				err := stmt.bindString(index + 1, *value, parameter.Length, parameter.Direction)
-				if err != nil {
-					return err
-				}
-			case time.Time:
-				if parameter.DateOnly {
-					err := stmt.bindDate(index + 1, value, parameter.Direction)
-					if err != nil {
-						return err
-					}
-				} else {
-					err := stmt.bindDateTime(index + 1, value, parameter.Direction)
-						if err != nil {
-							return err
-						}
-				}				
-			case *time.Time:
-				if parameter.DateOnly {
-					err := stmt.bindDate(index + 1, *value, parameter.Direction)
-					if err != nil {
-						return err
-					}
-				} else {
-					err := stmt.bindDateTime(index + 1, *value, parameter.Direction)
-						if err != nil {
-							return err
-						}
-				} 
-			default:
-				return fmt.Errorf("Error binding parameter number: %v.  Parameter type not supported: %T", index + 1, parameter.Value)  				
+			}
+		default:
+			return fmt.Errorf("Error binding parameter number: %v.  Parameter type not supported: %T", index+1, parameter.Value)
 		}
 	}
-	
+
 	return nil
 }
 
-func (stmt *Statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLReturn) {
+func (stmt *statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLReturn) {
 	//Get number of result columns
 	var numColumns int16
 	ret := odbc.SQLNumResultCols(stmt.handle, &numColumns)
@@ -371,9 +370,9 @@ func (stmt *Statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 		if IsError(ret) {
 			ErrorStatement(stmt.handle, stmt.sqlStmt)
 		}
-		
+
 		//If the type is a CHAR or VARCHAR, add 4 to the length
-		if sqlType == odbc.SQL_CHAR || sqlType ==  odbc.SQL_VARCHAR || sqlType == odbc.SQL_WCHAR || sqlType == odbc.SQL_WVARCHAR {
+		if sqlType == odbc.SQL_CHAR || sqlType == odbc.SQL_VARCHAR || sqlType == odbc.SQL_WCHAR || sqlType == odbc.SQL_WVARCHAR {
 			length = length + 4
 		}
 
@@ -402,7 +401,7 @@ func (stmt *Statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 	return resultColumnDefs, odbc.SQL_SUCCESS
 }
 
-func (stmt *Statement) formatBindValues() string {
+func (stmt *statement) formatBindValues() string {
 	strValues := make([]string, 0, len(stmt.bindValues))
 	for index, bvalue := range stmt.bindValues {
 		//Skip 0 index
@@ -413,23 +412,23 @@ func (stmt *Statement) formatBindValues() string {
 			strValues = append(strValues, fmt.Sprintf("%v: <nil>", index))
 		} else {
 			switch val := bvalue.(type) {
-				case *int, *int64, *bool, *float64, *odbc.SQL_DATE_STRUCT, *odbc.SQL_TIMESTAMP_STRUCT:
-					refValue := reflect.ValueOf(val)
-					interfaceValue := reflect.Indirect(refValue).Interface()
-					name := reflect.TypeOf(interfaceValue).Name()
-					strValues = append(strValues, fmt.Sprintf("%v: <%v> {%v}", index, name, interfaceValue))		
-				case []uint16:
-					str := syscall.UTF16ToString(val)
-					strValues = append(strValues, fmt.Sprintf("%v: <string> {%v}", index, str))	
-				default:
-					strValues = append(strValues, fmt.Sprintf("%v: Unknown type: <%t>", index, val))	
+			case *int, *int64, *bool, *float64, *odbc.SQL_DATE_STRUCT, *odbc.SQL_TIMESTAMP_STRUCT:
+				refValue := reflect.ValueOf(val)
+				interfaceValue := reflect.Indirect(refValue).Interface()
+				name := reflect.TypeOf(interfaceValue).Name()
+				strValues = append(strValues, fmt.Sprintf("%v: <%v> {%v}", index, name, interfaceValue))
+			case []uint16:
+				str := syscall.UTF16ToString(val)
+				strValues = append(strValues, fmt.Sprintf("%v: <string> {%v}", index, str))
+			default:
+				strValues = append(strValues, fmt.Sprintf("%v: Unknown type: <%t>", index, val))
 			}
-			
+
 		}
-	} 
-	
+	}
+
 	return strings.Join(strValues, ", ")
-} 
+}
 
 //Checks the type v for nil
 func isNil(v interface{}) bool {

@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-type Rows struct {
+type rows struct {
 	//Statement handle
 	handle syscall.Handle
 
@@ -40,7 +40,7 @@ type Rows struct {
 type RawBytes []byte
 
 
-func (rows *Rows) Next() (bool) {
+func (rows *rows) Next() (bool) {
 	//If this is the first time rows has been read, setup necessary field level information
 	if rows.isBeforeFirst {
 		for index, resultColumnDef := range rows.ResultColumnDefs {
@@ -72,7 +72,7 @@ func (rows *Rows) Next() (bool) {
 	return false
 }
 
-func (rows *Rows) Close() error {
+func (rows *rows) Close() error {
 	//Verify that rows has not already been closed
 	if rows.isClosed {
 		return nil
@@ -90,7 +90,7 @@ func (rows *Rows) Close() error {
 	return nil
 }
 
-func (rows *Rows) Scan(dest ...interface{}) error {
+func (rows *rows) Scan(dest ...interface{}) error {
 	if rows.isBeforeFirst {
 		return fmt.Errorf("sql: Scan called without calling Next")
 	}
@@ -130,11 +130,11 @@ func (rows *Rows) Scan(dest ...interface{}) error {
 	return nil
 }
 
-func (rows *Rows) Err() (error) {
+func (rows *rows) Err() (error) {
 	return rows.lastError
 }
 
-func (rows *Rows) getRow() ([]interface{}, error) {
+func (rows *rows) getRow() ([]interface{}, error) {
 	dest := make([]interface{}, len(rows.ResultColumnDefs))
 	for index, _ := range rows.ResultColumnDefs {
 		fieldValue, ret := rows.getField(index + 1)
@@ -146,7 +146,7 @@ func (rows *Rows) getRow() ([]interface{}, error) {
 	return dest, nil
 }
 
-func (rows *Rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
+func (rows *rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
 	columnDef := rows.ResultColumnDefs[index - 1]
 	var fieldInd odbc.SQLValueIndicator
 	switch columnDef.DataType {

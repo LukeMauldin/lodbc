@@ -6,7 +6,7 @@ import (
 	"unsafe"
 )
 
-type Connection struct {
+type connection struct {
 	//Connection handle
 	handle syscall.Handle
 
@@ -20,7 +20,7 @@ type Connection struct {
 	isClosed bool
 }
 
-func (c *Connection) Close() (error) {
+func (c *connection) Close() (error) {
 	//Verify that connHandle is valid
 	if c.handle == 0 {
 		return nil
@@ -73,7 +73,7 @@ func (c *Connection) Close() (error) {
 }
 
 
-func (c *Connection) Begin() (error) {
+func (c *connection) Begin() (error) {
 	ret := odbc.SQLSetConnectAttr(c.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQL_AUTOCOMMIT_OFF, 0, nil)
 	if IsError(ret) {
 		return ErrorConnection(c.handle)
@@ -82,15 +82,15 @@ func (c *Connection) Begin() (error) {
 	return nil
 }
 
-func (c *Connection) Commit() (error) {
+func (c *connection) Commit() (error) {
 	return c.completeTransaction(odbc.SQL_COMMIT)
 }
 
-func (c *Connection) Rollback() (error) {
+func (c *connection) Rollback() (error) {
 	return c.completeTransaction(odbc.SQL_ROLLBACK)
 }
 
-func (c *Connection) completeTransaction(completeType odbc.SQLTransactionOption) (error) {
+func (c *connection) completeTransaction(completeType odbc.SQLTransactionOption) (error) {
 	//Complete transaction by either committing or rolling back
 	ret := odbc.SQLEndTran(odbc.SQL_HANDLE_DBC, c.handle, completeType)
 	if IsError(ret) {
@@ -106,7 +106,7 @@ func (c *Connection) completeTransaction(completeType odbc.SQLTransactionOption)
 	return nil
 }
 
-func (c *Connection) NewStatement() (IStatement, error) {
+func (c *connection) NewStatement() (IStatement, error) {
 	//Allocate the statement handle
 	var stmtHandle syscall.Handle
 	ret := odbc.SQLAllocHandle(odbc.SQL_HANDLE_STMT, c.handle, &stmtHandle)
@@ -128,11 +128,11 @@ func (c *Connection) NewStatement() (IStatement, error) {
 	}
 	
 	//Create new statement
-	stmt := &Statement {handle: stmtHandle, stmtDescHandle: stmtDescHandle}
+	stmt := &statement {handle: stmtHandle, stmtDescHandle: stmtDescHandle}
 	
 	return stmt, nil
 }
 
-func (c *Connection) IsTransactionActive() (bool) {
+func (c *connection) IsTransactionActive() (bool) {
 	return c.isTransactionActive
 }

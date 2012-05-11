@@ -7,8 +7,8 @@ import (
 
 //Global variables
 var (
- 	QUERY_TIMEOUT = 240 //240 seconds
-) 
+	QUERY_TIMEOUT = 240 //240 seconds
+)
 
 //Shared global environment
 var envHandle syscall.Handle
@@ -21,13 +21,13 @@ func init() {
 	if IsError(ret) {
 		panic(ErrorEnvironment(envHandle))
 	}
-	
+
 	// Allocate the environment handle	
 	ret = odbc.SQLAllocHandle(odbc.SQL_HANDLE_ENV, 0, &envHandle)
 	if IsError(ret) {
 		panic(ErrorEnvironment(envHandle))
 	}
-	
+
 	// Set the environment handle to use ODBC v3
 	ret = odbc.SQLSetEnvAttr(envHandle, odbc.SQL_ATTR_ODBC_VERSION, odbc.SQL_OV_ODBC3, 0)
 	if IsError(ret) {
@@ -48,17 +48,41 @@ func NewConnection(connStr string) (IConnection, error) {
 	if IsError(ret) {
 		return nil, ErrorConnection(connHandle)
 	}
-	
+
 	//Create new connection
-	var conn = &Connection {handle: connHandle, statements: make([]IStatement, 0), isTransactionActive: false}
-	
+	var conn = &connection{handle: connHandle, statements: make([]IStatement, 0), isTransactionActive: false}
+
 	return conn, nil
 }
 
-func FreeEnvironment() (error) {
+func FreeEnvironment() error {
 	ret := odbc.SQLFreeHandle(odbc.SQL_HANDLE_ENV, envHandle)
 	if IsError(ret) {
 		return ErrorEnvironment(envHandle)
 	}
 	return nil
+}
+
+type ODBCVersion int
+
+const (
+	ODBCVersion_3   ODBCVersion = 1
+	ODBCVersion_380 ODBCVersion = 2
+)
+
+func SetODBCVersion(version ODBCVersion) {
+	switch version {
+	case ODBCVersion_3:
+		ret := odbc.SQLSetEnvAttr(envHandle, odbc.SQL_ATTR_ODBC_VERSION, odbc.SQL_OV_ODBC3, 0)
+		if IsError(ret) {
+			panic(ErrorEnvironment(envHandle))
+		}
+		break
+	case ODBCVersion_380:
+		ret := odbc.SQLSetEnvAttr(envHandle, odbc.SQL_ATTR_ODBC_VERSION, odbc.SQL_OV_ODBC3_80, 0)
+		if IsError(ret) {
+			panic(ErrorEnvironment(envHandle))
+		}
+		break
+	}
 }
