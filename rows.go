@@ -2,7 +2,7 @@ package lodbc
 
 import (
 	"fmt"
-	"github.com/LukeMauldin/lodbc/odbc"
+	"github.com/lukemauldin/lodbc/odbc"
 	"syscall"
 	"time"
 	"unsafe"

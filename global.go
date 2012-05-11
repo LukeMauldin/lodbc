@@ -1,7 +1,7 @@
 package lodbc
 
 import (
-	"github.com/LukeMauldin/lodbc/odbc"
+	"github.com/lukemauldin/lodbc/odbc"
 	"syscall"
 )
 
