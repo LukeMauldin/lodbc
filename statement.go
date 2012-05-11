@@ -1,7 +1,7 @@
 package lodbc
 
 import (
-	"database/lodbc/odbc"
+	"github.com/LukeMauldin/go-lodbc/odbc"
 	"syscall"
 	 "time"
 	"unsafe"
