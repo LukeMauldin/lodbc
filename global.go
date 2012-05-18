@@ -1,6 +1,7 @@
 package lodbc
 
 import (
+	"database/sql"
 	"github.com/LukeMauldin/lodbc/odbc"
 	"syscall"
 )
@@ -33,26 +34,10 @@ func init() {
 	if IsError(ret) {
 		panic(ErrorEnvironment(envHandle))
 	}
-}
 
-func NewConnection(connStr string) (IConnection, error) {
-	//Allocate the connection handle
-	var connHandle syscall.Handle
-	ret := odbc.SQLAllocHandle(odbc.SQL_HANDLE_DBC, envHandle, &connHandle)
-	if IsError(ret) {
-		return nil, ErrorEnvironment(envHandle)
-	}
-
-	//Establish the connection with the database
-	ret = odbc.SQLDriverConnect(connHandle, 0, syscall.StringToUTF16Ptr(connStr), odbc.SQL_NTS, nil, 0, nil, odbc.SQL_DRIVER_NOPROMPT)
-	if IsError(ret) {
-		return nil, ErrorConnection(connHandle)
-	}
-
-	//Create new connection
-	var conn = &connection{handle: connHandle, statements: make([]IStatement, 0), isTransactionActive: false}
-
-	return conn, nil
+	//Register with the SQL package
+	d := &lodbcDriver{}
+	sql.Register("lodbc", d)
 }
 
 func FreeEnvironment() error {

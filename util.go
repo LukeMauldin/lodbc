@@ -2,6 +2,7 @@ package lodbc
 
 import (
 	"github.com/LukeMauldin/lodbc/odbc"
+	"reflect"
 )
 
 //Checks for SQL error
@@ -25,14 +26,14 @@ func numericToFloat(inputValue odbc.SQL_NUMERIC_STRUCT) float64 {
 			divisor = divisor * 10
 		}
 	}
-	
+
 	finalVal := float64(outputVal) / divisor
 
 	//Take into account the sign - if it is 0, convert to a negative
 	if inputValue.Sign == 0 {
 		finalVal = finalVal * -1
 	}
-	
+
 	return finalVal
 }
 
@@ -54,4 +55,15 @@ func byteToHextOval(inputVal []byte) int64 {
 		last = last * 16
 	}
 	return value
+}
+
+//Checks the type v for nil
+func isNil(v interface{}) bool {
+	val := reflect.ValueOf(v)
+	switch val.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
+		reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
+		return val.IsNil()
+	}
+	return false
 }

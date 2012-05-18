@@ -1,6 +1,9 @@
 package lodbc
 
 import (
+	"bytes"
+	"database/sql/driver"
+	"encoding/gob"
 	"fmt"
 	"github.com/LukeMauldin/lodbc/odbc"
 	"reflect"
@@ -17,17 +20,14 @@ type statement struct {
 	//Statement descriptor handle
 	stmtDescHandle syscall.Handle
 
-	//Active query for the statement
-	rows IRows
-
-	//Is closed -- allows Close() to be called multiple times without error
-	isClosed bool
-
 	//Current executing sql statement
 	sqlStmt string
 
-	//Store bind parameter values in a map to be sure they stay in scope
-	//bindValues map[int]interface{}
+	//Active query for the statement
+	rows driver.Rows
+
+	//Is closed -- allows Close() to be called multiple times without error
+	isClosed bool
 
 	//Array to store bind parameter values to be sure they stay in scope
 	bindValues []interface{}
@@ -158,7 +158,7 @@ func (stmt *statement) Close() error {
 	//Free the statement handle
 	ret := odbc.SQLFreeHandle(odbc.SQL_HANDLE_STMT, stmt.handle)
 	if IsError(ret) {
-		err = ErrorStatement(stmt.handle, "")
+		err = ErrorStatement(stmt.handle, stmt.sqlStmt)
 		isError = true
 	}
 
@@ -173,93 +173,111 @@ func (stmt *statement) Close() error {
 	return nil
 }
 
-func (stmt *statement) Query(query string) (IRows, error) {
+func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
+	//Clear any existing bind values
+	stmt.bindValues = make([]interface{}, len(args)+1)
+
+	//Bind the parameters
+	bindParameters, err := stmt.convertToBindParameters(args)
+	if err != nil {
+		return nil, err
+	}
+	stmt.bindParameters(bindParameters)
+
 	//If rows is not nil, close rows and set to nil
 	if stmt.rows != nil {
 		stmt.rows.Close()
 		stmt.rows = nil
 	}
 
-	//Store the SQL statement being executed
-	stmt.sqlStmt = query
-
 	//Execute SQL statement
-	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(query), odbc.SQL_NTS)
+	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(stmt.sqlStmt), odbc.SQL_NTS)
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", query, stmt.formatBindValues()))
+		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 
 	//Get row descriptor handle
 	var descRowHandle syscall.Handle
 	ret = odbc.SQLGetStmtAttr(stmt.handle, odbc.SQL_ATTR_APP_ROW_DESC, uintptr(unsafe.Pointer(&descRowHandle)), 0, nil)
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", query, stmt.formatBindValues()))
+		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 
 	//Get definition of result columns
 	resultColumnDefs, ret := stmt.getResultColumnDefintion()
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", query, stmt.formatBindValues()))
+		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 
 	//Create rows
-	stmt.rows = &rows{handle: stmt.handle, descHandle: descRowHandle, isBeforeFirst: true, ResultColumnDefs: resultColumnDefs, sqlStmt: query}
+	stmt.rows = &rows{handle: stmt.handle, descHandle: descRowHandle, isBeforeFirst: true, ResultColumnDefs: resultColumnDefs, sqlStmt: stmt.sqlStmt}
 
 	return stmt.rows, nil
 }
 
-func (stmt *statement) QueryWithParams(query string, parameters ...BindParameter) (IRows, error) {
+func (stmt *statement) Exec(args []driver.Value) (driver.Result, error) {
 	//Clear any existing bind values
-	stmt.bindValues = make([]interface{}, len(parameters)+1)
+	stmt.bindValues = make([]interface{}, len(args)+1)
 
 	//Bind the parameters
-	stmt.bindParameters(parameters...)
+	bindParameters, err := stmt.convertToBindParameters(args)
+	if err != nil {
+		return nil, err
+	}
+	stmt.bindParameters(bindParameters)
 
-	//Execute the query
-	return stmt.Query(query)
-}
-
-func (stmt *statement) Exec(query string) error {
 	//If rows is not nil, close rows and set to nil
 	if stmt.rows != nil {
 		stmt.rows.Close()
 		stmt.rows = nil
 	}
 
-	//Store the SQL statement being executed
-	stmt.sqlStmt = query
-
 	//Execute SQL statement
-	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(query), odbc.SQL_NTS)
+	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(stmt.sqlStmt), odbc.SQL_NTS)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\n Bind Values: %v", query, stmt.formatBindValues()))
+		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\n Bind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 
-	return nil
+	return driver.ResultNoRows, nil
 }
 
-func (stmt *statement) ExecWithParams(query string, parameters ...BindParameter) error {
-	//Clear any existing bind values
-	stmt.bindValues = make([]interface{}, len(parameters)+1)
-
-	//Bind the parameters
-	stmt.bindParameters(parameters...)
-
-	//Execute the statement
-	return stmt.Exec(query)
+func (stmt *statement) NumInput() int {
+	return -1 //No checking by the driver
 }
 
-func (stmt *statement) bindParameters(parameters ...BindParameter) error {
+func (stmt *statement) convertToBindParameters(args []driver.Value) ([]BindParameter, error) {
+	bindParameters := make([]BindParameter, len(args))
+	//Check each item in args and see if it is an encoded byte array or a driver.Value
+	for index, arg := range args {
+		if encodedBytes, ok := arg.([]byte); ok {
+			//If arg is an encoded byte array, attempt to decode into a bindParameter
+			decodedBuffer := bytes.NewBuffer(encodedBytes)
+			dec := gob.NewDecoder(decodedBuffer)
+			var bindParameter BindParameter
+			err := dec.Decode(&bindParameter)
+			if err != nil {
+				return nil, err
+			}
+			bindParameters[index] = bindParameter
+		} else {
+			//If arg is a driver.Value, create a BindParameter
+			bindParameters[index] = BindParameter{Data: arg}
+		}
+	}
+	return bindParameters, nil
+}
+
+func (stmt *statement) bindParameters(parameters []BindParameter) error {
 	//Call bind statements based on the type of the parameter
 	for index, parameter := range parameters {
-		if isNil(parameter.Value) {
+		if isNil(parameter.Data) {
 			err := stmt.bindNull(index+1, parameter.Direction)
 			if err != nil {
 				return err
 			}
 			continue
 		}
-		switch value := parameter.Value.(type) {
+		switch value := parameter.Data.(type) {
 		case nil:
 			err := stmt.bindNull(index+1, parameter.Direction)
 			if err != nil {
@@ -340,7 +358,7 @@ func (stmt *statement) bindParameters(parameters ...BindParameter) error {
 				}
 			}
 		default:
-			return fmt.Errorf("Error binding parameter number: %v.  Parameter type not supported: %T", index+1, parameter.Value)
+			return fmt.Errorf("Error binding parameter number: %v.  Parameter type not supported: %T", index+1, parameter.Data)
 		}
 	}
 
@@ -358,15 +376,15 @@ func (stmt *statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 	resultColumnDefs := make([]ResultColumnDef, 0, numColumns)
 	for colNum, lNumColumns := uint16(1), uint16(numColumns); colNum <= lNumColumns; colNum++ {
 		//Get odbc.SQL type
-		var sqlType int32
-		ret := odbc.SQLColAttribute(stmt.handle, colNum, odbc.SQL_DESC_TYPE, 0, 0, nil, &sqlType)
+		var sqlType odbc.SQLLEN
+		ret := odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_TYPE, 0, 0, nil, &sqlType)
 		if IsError(ret) {
 			ErrorStatement(stmt.handle, stmt.sqlStmt)
 		}
 
 		//Get length
-		var length int32
-		ret = odbc.SQLColAttribute(stmt.handle, colNum, odbc.SQL_DESC_LENGTH, 0, 0, nil, &length)
+		var length odbc.SQLLEN
+		ret = odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_LENGTH, 0, 0, nil, &length)
 		if IsError(ret) {
 			ErrorStatement(stmt.handle, stmt.sqlStmt)
 		}
@@ -376,25 +394,34 @@ func (stmt *statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 			length = length + 4
 		}
 
+		//Get name
+		const namelength = 1000
+		nameArr := make([]uint16, namelength)
+		ret = odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_DESC_LABEL, uintptr(unsafe.Pointer(&nameArr[0])), namelength, nil, nil)
+		if IsError(ret) {
+			ErrorStatement(stmt.handle, stmt.sqlStmt)
+		}
+		name := syscall.UTF16ToString(nameArr)
+
 		//For numeric and decimal types, get the precision
-		var precision int32
+		var precision odbc.SQLLEN
 		if sqlType == odbc.SQL_NUMERIC || sqlType == odbc.SQL_DECIMAL {
-			ret = odbc.SQLColAttribute(stmt.handle, colNum, odbc.SQL_DESC_PRECISION, 0, 0, nil, &precision)
+			ret = odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_PRECISION, 0, 0, nil, &precision)
 			if IsError(ret) {
 				ErrorStatement(stmt.handle, stmt.sqlStmt)
 			}
 		}
 
 		//For numeric and decimal types, get the scale
-		var scale int32
+		var scale odbc.SQLLEN
 		if sqlType == odbc.SQL_NUMERIC || sqlType == odbc.SQL_DECIMAL {
-			ret = odbc.SQLColAttribute(stmt.handle, colNum, odbc.SQL_DESC_SCALE, 0, 0, nil, &scale)
+			ret = odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_SCALE, 0, 0, nil, &scale)
 			if IsError(ret) {
 				ErrorStatement(stmt.handle, stmt.sqlStmt)
 			}
 		}
 
-		resultColumnDef := ResultColumnDef{RecNum: colNum, DataType: odbc.SQLDataType(sqlType), Length: length, Precision: precision, Scale: scale}
+		resultColumnDef := ResultColumnDef{RecNum: colNum, DataType: odbc.SQLDataType(sqlType), Name: name, Length: int32(length), Precision: int32(precision), Scale: int32(scale)}
 		resultColumnDefs = append(resultColumnDefs, resultColumnDef)
 	}
 
@@ -430,13 +457,4 @@ func (stmt *statement) formatBindValues() string {
 	return strings.Join(strValues, ", ")
 }
 
-//Checks the type v for nil
-func isNil(v interface{}) bool {
-	val := reflect.ValueOf(v)
-	switch val.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
-		reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
-		return val.IsNil()
-	}
-	return false
-}
+

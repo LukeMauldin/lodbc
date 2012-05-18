@@ -3,6 +3,7 @@ package odbc
 import ()
 
 ////Generate file command: C:\GoBuild\go\src\pkg\syscall\mksyscall_windows.pl api.go > apisys.go
+////Console mode: mode con:cols=150
 
 //sys   SQLAllocHandle(handleType SQLHandle, inputHandle syscall.Handle, outputHandle *syscall.Handle) (ret SQLReturn) = odbc32.SQLAllocHandle
 //sys   SQLSetEnvAttr(environmentHandle syscall.Handle, attribute SQLINTEGER, valuePtr int32, stringLength SQLINTEGER) (ret SQLReturn) = odbc32.SQLSetEnvAttr
@@ -23,7 +24,7 @@ import ()
 //sys   SQLGetDescField(descriptorHandle syscall.Handle, recNumber int16, fieldIdentifier int16, valuePtr uintptr, bufferLength int, lengthPtr *int) (ret SQLReturn) = odbc32.SQLGetDescField
 //sys   SQLGetDescRec(descriptorHandle syscall.Handle, recNumber int16, name *uint16, bufferLength int16, stringLengthPtr *int16, typePtr *int16, subTypePtr *int16, lengthPtr *int, precisionPtr *int16, scalePtr *int16, nullablePtr *int16) (ret SQLReturn) = odbc32.SQLGetDescRecW
 //sys   SQLGetDiagRec(handleType SQLHandle, inputHandle syscall.Handle, recNumber int16, sqlState uintptr, nativeErrorPtr *int, messageText uintptr, bufferLength int16, textLengthPtr *int16) (ret SQLReturn) = odbc32.SQLGetDiagRecW
-//sys   SQLColAttribute(statementHandle syscall.Handle, columnNumber uint16, fieldIdentifier SQLDescriptor, characterAttribute uintptr, bufferLength SQLSMALLINT, stringLengthPtr *int16, numericAttributePtr *int32) (ret SQLReturn) = odbc32.SQLColAttributeW
+//sys   SQLColAttribute(statementHandle syscall.Handle, columnNumber SQLUSMALLINT, fieldIdentifier SQLColAttributeType, characterAttribute uintptr, bufferLength SQLSMALLINT, stringLengthPtr *SQLSMALLINT, numericAttributePtr *SQLLEN) (ret SQLReturn) = odbc32.SQLColAttributeW
 //sys   SQLNumResultCols(statementHandle syscall.Handle, columnCount *int16)  (ret SQLReturn) = odbc32.SQLNumResultCols
 //sys   SQLGetData(statementHandle syscall.Handle, colNum uint16 , targetType CDataType, targetValuePtr uintptr, bufferLength SQLLEN, ind *SQLValueIndicator) (ret SQLReturn) = odbc32.SQLGetData
 //sys   SQLGetStmtAttr(statementHandle syscall.Handle, attribute SQLStatementAttribute, valuePtr uintptr, bufferLength SQLINTEGER, stringLengthPtr *SQLINTEGER) (ret SQLReturn) = odbc32.SQLGetStmtAttr

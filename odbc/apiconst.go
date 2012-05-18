@@ -63,32 +63,34 @@ const (
 )
 
 //SQL data types
-type SQLDataType SQLSMALLINT 
+type SQLDataType SQLSMALLINT
 
 const (
-	SQL_UNKNOWN_TYPE  = 0
-	SQL_CHAR          = 1
-	SQL_NUMERIC       = 2
-	SQL_DECIMAL       = 3
-	SQL_INTEGER       = 4
-	SQL_SMALLINT      = 5
-	SQL_FLOAT         = 6
-	SQL_REAL          = 7
-	SQL_DOUBLE        = 8
-	SQL_DATETIME      = 9
-	SQL_VARCHAR       = 12
-	SQL_DATE          = 91
-	SQL_TIME          = 92
-	SQL_TIMESTAMP     = 11
-	SQL_LONGVARCHAR   = -1
-	SQL_BINARY        = -2
-	SQL_VARBINARY     = -3
-	SQL_LONGVARBINARY = -4
-	SQL_BIGINT        = -5
-	SQL_TINYINT       = -6
-	SQL_BIT           = -7
-	SQL_WCHAR         = -8
-	SQL_WVARCHAR      = -9
+	SQL_UNKNOWN_TYPE   = 0
+	SQL_CHAR           = 1
+	SQL_NUMERIC        = 2
+	SQL_DECIMAL        = 3
+	SQL_INTEGER        = 4
+	SQL_SMALLINT       = 5
+	SQL_FLOAT          = 6
+	SQL_REAL           = 7
+	SQL_DOUBLE         = 8
+	SQL_DATE           = 9
+	SQL_TIME           = 10
+	SQL_VARCHAR        = 12
+	SQL_TYPE_DATE      = 91
+	SQL_TYPE_TIME      = 92
+	SQL_TYPE_TIMESTAMP = 93
+	SQL_TIMESTAMP      = 11
+	SQL_LONGVARCHAR    = -1
+	SQL_BINARY         = -2
+	SQL_VARBINARY      = -3
+	SQL_LONGVARBINARY  = -4
+	SQL_BIGINT         = -5
+	SQL_TINYINT        = -6
+	SQL_BIT            = -7
+	SQL_WCHAR          = -8
+	SQL_WVARCHAR       = -9
 )
 
 //C data types
@@ -136,23 +138,36 @@ const (
 )
 
 //SQL descriptors
-type SQLDescriptor uint16
+type SQLDescriptor SQLSMALLINT
 
 const (
-	SQL_DESC_COUNT                  = 1001
-	SQL_DESC_TYPE                   = 1002
-	SQL_DESC_LENGTH                 = 1003
-	SQL_DESC_OCTET_LENGTH_PTR       = 1004
-	SQL_DESC_PRECISION              = 1005
-	SQL_DESC_SCALE                  = 1006
-	SQL_DESC_DATETIME_INTERVAL_CODE = 1007
-	SQL_DESC_NULLABLE               = 1008
-	SQL_DESC_INDICATOR_PTR          = 1009
-	SQL_DESC_DATA_PTR               = 1010
-	SQL_DESC_NAME                   = 1011
-	SQL_DESC_UNNAMED                = 1012
-	SQL_DESC_OCTET_LENGTH           = 1013
-	SQL_DESC_ALLOC_TYPE             = 1099
+	SQL_DESC_COUNT                  SQLSMALLINT = 1001
+	SQL_DESC_TYPE                   SQLSMALLINT = 1002
+	SQL_DESC_LENGTH                 SQLSMALLINT = 1003
+	SQL_DESC_OCTET_LENGTH_PTR       SQLSMALLINT = 1004
+	SQL_DESC_PRECISION              SQLSMALLINT = 1005
+	SQL_DESC_SCALE                  SQLSMALLINT = 1006
+	SQL_DESC_DATETIME_INTERVAL_CODE SQLSMALLINT = 1007
+	SQL_DESC_NULLABLE               SQLSMALLINT = 1008
+	SQL_DESC_INDICATOR_PTR          SQLSMALLINT = 1009
+	SQL_DESC_DATA_PTR               SQLSMALLINT = 1010
+	SQL_DESC_NAME                   SQLSMALLINT = 1011
+	SQL_DESC_UNNAMED                SQLSMALLINT = 1012
+	SQL_DESC_OCTET_LENGTH           SQLSMALLINT = 1013
+	SQL_DESC_ALLOC_TYPE             SQLSMALLINT = 1099
+)
+
+//SQLColAttributes
+type SQLColAttributeType SQLUSMALLINT
+
+const (
+	SQL_COLUMN_TYPE      SQLColAttributeType = 2
+	SQL_COLUMN_LENGTH    SQLColAttributeType = 3
+	SQL_COLUMN_PRECISION SQLColAttributeType = 4
+	SQL_COLUMN_SCALE     SQLColAttributeType = 5
+	SQL_COLUMN_NULLABLE  SQLColAttributeType = 7
+	SQL_COLUMN_LABEL     SQLColAttributeType = 18
+	SQL_DESC_LABEL       SQLColAttributeType = SQL_COLUMN_LABEL
 )
 
 //Special length/indicator values
