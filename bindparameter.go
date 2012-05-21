@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+func init() {
+	tp := new(time.Time)
+	gob.Register(tp)
+}
+
 type BindParameter struct {
 	Data      driver.Value
 	Length    int
@@ -18,19 +23,13 @@ type BindParameter struct {
 	Direction ParameterDirection
 }
 
-func init() {
-	/* var bp BindParameter
-	gob.Register(bp)
-	var t time.Time
-	gob.Register(t) */
-	//var t time.Time
-	//gob.Register(t)
-	tp := new(time.Time)
-	gob.Register(tp)
-}
+/*
+ * Implement the Valuer interface to convert a BindParameter to a driver.Value
+ * Uses GOB encoding to encode as a []byte to bypass the restriction on driver.Value types
+ */
 
 func (bp BindParameter) Value() (driver.Value, error) {
-	//No conversion necessary if bp.Data is nil
+	//Return nil if bp.Data is nil
 	if isNil(bp.Data) {
 		return nil, nil
 	}
@@ -51,6 +50,10 @@ const (
 	OutputParameter      ParameterDirection = 1
 	InputOutputParameter ParameterDirection = 2
 )
+
+/*
+ * Converts ParameterDirection to an ODBC parameter direction
+ */
 
 func (p ParameterDirection) SQLBindParameterType() odbc.SQLBindParameterType {
 	switch p {

@@ -26,6 +26,9 @@ type statement struct {
 	//Active query for the statement
 	rows driver.Rows
 
+	//Owning connection
+	conn *connection
+
 	//Is closed -- allows Close() to be called multiple times without error
 	isClosed bool
 
@@ -122,8 +125,8 @@ func (stmt *statement) bindNull(index int, direction ParameterDirection) error {
 }
 
 func (stmt *statement) bindNullParam(index int, paramType odbc.SQLDataType, direction ParameterDirection) error {
-	var nullDataInd odbc.SQLValueIndicator
-	nullDataInd = odbc.SQL_NULL_DATA
+	nullDataInd := odbc.SQL_NULL_DATA
+	stmt.bindValues[index] = &nullDataInd
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DEFAULT, paramType, 1, 0, 0, 0, &nullDataInd)
 	if IsError(ret) {
 		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: nil", index))
@@ -161,6 +164,9 @@ func (stmt *statement) Close() error {
 		err = ErrorStatement(stmt.handle, stmt.sqlStmt)
 		isError = true
 	}
+
+	//Mark the statement as closed with the connection
+	stmt.conn.closeStatement(stmt)
 
 	//Return any error
 	if isError {
@@ -208,9 +214,15 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 	if IsError(ret) {
 		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
+	
+	//Make a slice of the column names
+	columnNames := make([]string, len(resultColumnDefs))
+	for index, resultCol := range resultColumnDefs {
+		columnNames[index] = fmt.Sprint(resultCol.Name)
+	}
 
 	//Create rows
-	stmt.rows = &rows{handle: stmt.handle, descHandle: descRowHandle, isBeforeFirst: true, ResultColumnDefs: resultColumnDefs, sqlStmt: stmt.sqlStmt}
+	stmt.rows = &rows{handle: stmt.handle, descHandle: descRowHandle, isBeforeFirst: true, ResultColumnDefs: resultColumnDefs, resultColumnNames: columnNames, sqlStmt: stmt.sqlStmt}
 
 	return stmt.rows, nil
 }
@@ -270,6 +282,7 @@ func (stmt *statement) convertToBindParameters(args []driver.Value) ([]BindParam
 func (stmt *statement) bindParameters(parameters []BindParameter) error {
 	//Call bind statements based on the type of the parameter
 	for index, parameter := range parameters {
+		//Bind a null parameter
 		if isNil(parameter.Data) {
 			err := stmt.bindNull(index+1, parameter.Direction)
 			if err != nil {
@@ -277,7 +290,11 @@ func (stmt *statement) bindParameters(parameters []BindParameter) error {
 			}
 			continue
 		}
-		switch value := parameter.Data.(type) {
+
+		//Flatten out pointers
+		elemValue := reflect.Indirect(reflect.ValueOf(parameter.Data)).Interface()
+		
+		switch value := elemValue.(type) {
 		case nil:
 			err := stmt.bindNull(index+1, parameter.Direction)
 			if err != nil {
@@ -288,18 +305,8 @@ func (stmt *statement) bindParameters(parameters []BindParameter) error {
 			if err != nil {
 				return err
 			}
-		case *bool:
-			err := stmt.bindBool(index+1, *value, parameter.Direction)
-			if err != nil {
-				return err
-			}
 		case int:
 			err := stmt.bindInt(index+1, value, parameter.Direction)
-			if err != nil {
-				return err
-			}
-		case *int:
-			err := stmt.bindInt(index+1, *value, parameter.Direction)
 			if err != nil {
 				return err
 			}
@@ -308,28 +315,13 @@ func (stmt *statement) bindParameters(parameters []BindParameter) error {
 			if err != nil {
 				return err
 			}
-		case *int64:
-			err := stmt.bindInt64(index+1, *value, parameter.Direction)
-			if err != nil {
-				return err
-			}
 		case float64:
 			err := stmt.bindNumeric(index+1, value, parameter.Precision, parameter.Scale, parameter.Direction)
 			if err != nil {
 				return err
 			}
-		case *float64:
-			err := stmt.bindNumeric(index+1, *value, parameter.Precision, parameter.Scale, parameter.Direction)
-			if err != nil {
-				return err
-			}
 		case string:
 			err := stmt.bindString(index+1, value, parameter.Length, parameter.Direction)
-			if err != nil {
-				return err
-			}
-		case *string:
-			err := stmt.bindString(index+1, *value, parameter.Length, parameter.Direction)
 			if err != nil {
 				return err
 			}
@@ -341,18 +333,6 @@ func (stmt *statement) bindParameters(parameters []BindParameter) error {
 				}
 			} else {
 				err := stmt.bindDateTime(index+1, value, parameter.Direction)
-				if err != nil {
-					return err
-				}
-			}
-		case *time.Time:
-			if parameter.DateOnly {
-				err := stmt.bindDate(index+1, *value, parameter.Direction)
-				if err != nil {
-					return err
-				}
-			} else {
-				err := stmt.bindDateTime(index+1, *value, parameter.Direction)
 				if err != nil {
 					return err
 				}
@@ -456,5 +436,3 @@ func (stmt *statement) formatBindValues() string {
 
 	return strings.Join(strValues, ", ")
 }
-
-

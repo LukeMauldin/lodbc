@@ -31,14 +31,13 @@ type rows struct {
 
 	//Result column defintions
 	ResultColumnDefs []ResultColumnDef
+	
+	//Result column names
+	resultColumnNames []string
 }
 
 func (rows *rows) Columns() []string {
-	columns := make([]string, len(rows.ResultColumnDefs))
-	for index, resultCol := range rows.ResultColumnDefs {
-		columns[index] = fmt.Sprint(resultCol.Name)
-	}
-	return columns
+	return rows.resultColumnNames	
 }
 
 func (rows *rows) Next(dest []driver.Value) error {

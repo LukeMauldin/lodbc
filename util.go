@@ -59,6 +59,9 @@ func byteToHextOval(inputVal []byte) int64 {
 
 //Checks the type v for nil
 func isNil(v interface{}) bool {
+	if v == nil {
+		return true
+	}
 	val := reflect.ValueOf(v)
 	switch val.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,

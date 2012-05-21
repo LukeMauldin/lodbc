@@ -174,8 +174,8 @@ const (
 type SQLValueIndicator SQLLEN
 
 const (
-	SQL_NULL_DATA    = -1
-	SQL_DATA_AT_EXEC = -2
+	SQL_NULL_DATA    SQLValueIndicator = -1
+	SQL_DATA_AT_EXEC SQLValueIndicator = -2
 )
 
 type SQL_NUMERIC_STRUCT struct {

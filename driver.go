@@ -24,7 +24,7 @@ func (d *lodbcDriver) Open(name string) (driver.Conn, error) {
 	}
 
 	//Create new connection
-	var conn = &connection{handle: connHandle, isTransactionActive: false}
+	var conn = &connection{handle: connHandle, isTransactionActive: false, statements: make(map[driver.Stmt]bool, 0)}
 
 	return conn, nil
 }

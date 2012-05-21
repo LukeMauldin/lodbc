@@ -14,6 +14,9 @@ type connection struct {
 
 	//Is transaction active
 	isTransactionActive bool
+	
+	//Statements owned by the connection
+	statements map[driver.Stmt]bool
 
 	//Is closed -- allows Close() to be called multiple times without error
 	isClosed bool
@@ -41,7 +44,10 @@ func (c *connection) Prepare(query string) (driver.Stmt, error) {
 	}
 
 	//Create new statement
-	stmt := &statement{handle: stmtHandle, stmtDescHandle: stmtDescHandle, sqlStmt: query}
+	stmt := &statement{handle: stmtHandle, stmtDescHandle: stmtDescHandle, sqlStmt: query, conn: c}
+	
+	//Add to map of statements owned by the connection
+	c.statements[stmt] = true
 
 	return stmt, nil
 }
@@ -59,16 +65,28 @@ func (c *connection) Close() error {
 
 	var err error
 	isError := false
+	
+	//Close all of the statements owned by the connection
+	for key, _ := range c.statements {
+		//Skip the statement if it is already nil
+		if isNil(key) {
+			continue
+		}
+		key.Close()
+	}
+	c.statements = nil
 
 	//If the transaction is active, roll it back
-	ret := odbc.SQLEndTran(odbc.SQL_HANDLE_DBC, c.handle, odbc.SQL_ROLLBACK)
-	if IsError(ret) {
-		err = ErrorConnection(c.handle)
-		isError = true
+	if c.isTransactionActive {
+		ret := odbc.SQLEndTran(odbc.SQL_HANDLE_DBC, c.handle, odbc.SQL_ROLLBACK)
+		if IsError(ret) {
+			err = ErrorConnection(c.handle)
+			isError = true
+		}
 	}
 
 	//Disconnect connection
-	ret = odbc.SQLDisconnect(c.handle)
+	ret := odbc.SQLDisconnect(c.handle)
 	if IsError(ret) {
 		err = ErrorConnection(c.handle)
 		isError = true
@@ -110,4 +128,9 @@ func (c *connection) Begin() (driver.Tx, error) {
 
 func (c *connection) IsTransactionActive() bool {
 	return c.isTransactionActive
+}
+
+
+func (c *connection) closeStatement(stmt driver.Stmt) {
+	delete(c.statements, stmt)
 }
