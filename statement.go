@@ -40,7 +40,7 @@ func (stmt *statement) bindInt(index int, value int, direction ParameterDirectio
 	stmt.bindValues[index] = &value
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_LONG, odbc.SQL_INTEGER, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*int))), 0, nil)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
 	return nil
 }
@@ -49,7 +49,7 @@ func (stmt *statement) bindInt64(index int, value int64, direction ParameterDire
 	stmt.bindValues[index] = &value
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_LONG, odbc.SQL_BIGINT, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*int64))), 0, nil)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
 	return nil
 }
@@ -58,7 +58,7 @@ func (stmt *statement) bindBool(index int, value bool, direction ParameterDirect
 	stmt.bindValues[index] = &value
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_BIT, odbc.SQL_BIT, 0, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*bool))), 0, nil)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
 	return nil
 }
@@ -72,7 +72,7 @@ func (stmt *statement) bindNumeric(index int, value float64, precision int, scal
 	odbc.SQLSetDescField(stmt.stmtDescHandle, odbc.SQLSMALLINT(index), odbc.SQL_DESC_PRECISION, int32(precision), 0)
 	odbc.SQLSetDescField(stmt.stmtDescHandle, odbc.SQLSMALLINT(index), odbc.SQL_DESC_SCALE, int32(scale), 0) */
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
 	return nil
 }
@@ -86,7 +86,7 @@ func (stmt *statement) bindDate(index int, value time.Time, direction ParameterD
 	stmt.bindValues[index] = &bindVal
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DATE, odbc.SQL_DATE, 10, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*odbc.SQL_DATE_STRUCT))), 6, nil)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, bindVal))
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, bindVal))
 	}
 	return nil
 }
@@ -103,7 +103,7 @@ func (stmt *statement) bindDateTime(index int, value time.Time, direction Parame
 	stmt.bindValues[index] = &bindVal
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_TIMESTAMP, odbc.SQL_TIMESTAMP, 23, 0, odbc.SQLPOINTER(unsafe.Pointer(stmt.bindValues[index].(*odbc.SQL_TIMESTAMP_STRUCT))), 16, nil)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, bindVal))
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, bindVal))
 	}
 	return nil
 }
@@ -115,7 +115,7 @@ func (stmt *statement) bindString(index int, value string, length int, direction
 	stmt.bindValues[index] = syscall.StringToUTF16(value)
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_WCHAR, odbc.SQL_VARCHAR, odbc.SQLULEN(length), 0, odbc.SQLPOINTER(unsafe.Pointer(&stmt.bindValues[index].([]uint16)[0])), 0, nil)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
 	return nil
 }
@@ -129,7 +129,7 @@ func (stmt *statement) bindNullParam(index int, paramType odbc.SQLDataType, dire
 	stmt.bindValues[index] = &nullDataInd
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_DEFAULT, paramType, 1, 0, 0, 0, &nullDataInd)
 	if IsError(ret) {
-		return ErrorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: nil", index))
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: nil", index))
 	}
 	return nil
 }
@@ -161,7 +161,7 @@ func (stmt *statement) Close() error {
 	//Free the statement handle
 	ret := odbc.SQLFreeHandle(odbc.SQL_HANDLE_STMT, stmt.handle)
 	if IsError(ret) {
-		err = ErrorStatement(stmt.handle, stmt.sqlStmt)
+		err = errorStatement(stmt.handle, stmt.sqlStmt)
 		isError = true
 	}
 
@@ -199,20 +199,20 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 	//Execute SQL statement
 	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(stmt.sqlStmt), odbc.SQL_NTS)
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
+		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 
 	//Get row descriptor handle
 	var descRowHandle syscall.Handle
 	ret = odbc.SQLGetStmtAttr(stmt.handle, odbc.SQL_ATTR_APP_ROW_DESC, uintptr(unsafe.Pointer(&descRowHandle)), 0, nil)
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
+		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 
 	//Get definition of result columns
 	resultColumnDefs, ret := stmt.getResultColumnDefintion()
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
+		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 	
 	//Make a slice of the column names
@@ -247,7 +247,7 @@ func (stmt *statement) Exec(args []driver.Value) (driver.Result, error) {
 	//Execute SQL statement
 	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(stmt.sqlStmt), odbc.SQL_NTS)
 	if IsError(ret) {
-		return nil, ErrorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\n Bind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
+		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\n Bind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 
 	return driver.ResultNoRows, nil
@@ -350,7 +350,7 @@ func (stmt *statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 	var numColumns int16
 	ret := odbc.SQLNumResultCols(stmt.handle, &numColumns)
 	if IsError(ret) {
-		ErrorStatement(stmt.handle, stmt.sqlStmt)
+		errorStatement(stmt.handle, stmt.sqlStmt)
 	}
 
 	resultColumnDefs := make([]ResultColumnDef, 0, numColumns)
@@ -359,14 +359,14 @@ func (stmt *statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 		var sqlType odbc.SQLLEN
 		ret := odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_TYPE, 0, 0, nil, &sqlType)
 		if IsError(ret) {
-			ErrorStatement(stmt.handle, stmt.sqlStmt)
+			errorStatement(stmt.handle, stmt.sqlStmt)
 		}
 
 		//Get length
 		var length odbc.SQLLEN
 		ret = odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_LENGTH, 0, 0, nil, &length)
 		if IsError(ret) {
-			ErrorStatement(stmt.handle, stmt.sqlStmt)
+			errorStatement(stmt.handle, stmt.sqlStmt)
 		}
 
 		//If the type is a CHAR or VARCHAR, add 4 to the length
@@ -379,7 +379,7 @@ func (stmt *statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 		nameArr := make([]uint16, namelength)
 		ret = odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_DESC_LABEL, uintptr(unsafe.Pointer(&nameArr[0])), namelength, nil, nil)
 		if IsError(ret) {
-			ErrorStatement(stmt.handle, stmt.sqlStmt)
+			errorStatement(stmt.handle, stmt.sqlStmt)
 		}
 		name := syscall.UTF16ToString(nameArr)
 
@@ -388,7 +388,7 @@ func (stmt *statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 		if sqlType == odbc.SQL_NUMERIC || sqlType == odbc.SQL_DECIMAL {
 			ret = odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_PRECISION, 0, 0, nil, &precision)
 			if IsError(ret) {
-				ErrorStatement(stmt.handle, stmt.sqlStmt)
+				errorStatement(stmt.handle, stmt.sqlStmt)
 			}
 		}
 
@@ -397,7 +397,7 @@ func (stmt *statement) getResultColumnDefintion() ([]ResultColumnDef, odbc.SQLRe
 		if sqlType == odbc.SQL_NUMERIC || sqlType == odbc.SQL_DECIMAL {
 			ret = odbc.SQLColAttribute(stmt.handle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_SCALE, 0, 0, nil, &scale)
 			if IsError(ret) {
-				ErrorStatement(stmt.handle, stmt.sqlStmt)
+				errorStatement(stmt.handle, stmt.sqlStmt)
 			}
 		}
 

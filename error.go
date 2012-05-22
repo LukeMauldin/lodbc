@@ -8,9 +8,14 @@ import (
 	"strings"
 )
 
-const SQLStateLength = 5
-const ErrorMaxMessageLength = 8000
+// Error constants
+const (
+	sqlStateLength = 5
+ 	errorMaxMessageLength = 8000
+)
 
+// Contains all possible information about an ODBC error
+// Exported so client programs can obtain additional error information 
 type StatusRecord struct {
 	State       string
 	NativeError int
@@ -18,6 +23,7 @@ type StatusRecord struct {
 	DriverInfo  string
 }
 
+// Convert StatusRecord to string
 func (sr *StatusRecord) toString() string {
 	if sr.DriverInfo != "" {
 		return fmt.Sprintf("{%s} \n%s \n%s", sr.State, sr.DriverInfo, sr.Message)
@@ -25,10 +31,14 @@ func (sr *StatusRecord) toString() string {
 	return fmt.Sprintf("{%s} %s", sr.State, sr.Message)
 }
 
+// Contains a slice of the error(s) returned by ODBCError
+// Exported so client programs can obtain additional error information 
+// Implements Error() interface
 type ODBCError struct {
 	StatusRecords []StatusRecord
 }
 
+// Implements Error() interface
 func (e *ODBCError) Error() string {
 	statusStrings := make([]string, len(e.StatusRecords))
 	for i, sr := range e.StatusRecords {
@@ -38,15 +48,15 @@ func (e *ODBCError) Error() string {
 	return strings.Join(statusStrings, "\n")
 }
 
-func ErrorEnvironment(handle syscall.Handle) error {
+func errorEnvironment(handle syscall.Handle) error {
 	return handleError(odbc.SQL_HANDLE_ENV, handle, "")
 }
 
-func ErrorConnection(handle syscall.Handle) error {
+func errorConnection(handle syscall.Handle) error {
 	return handleError(odbc.SQL_HANDLE_DBC, handle, "")
 }
 
-func ErrorStatement(handle syscall.Handle, driverInfo string) error {
+func errorStatement(handle syscall.Handle, driverInfo string) error {
 	return handleError(odbc.SQL_HANDLE_STMT, handle, driverInfo)
 }
 
@@ -54,10 +64,10 @@ func handleError(handleType odbc.SQLHandle, handle syscall.Handle, driverInfo st
 	statusRecords := make([]StatusRecord, 0)
 	if handle != 0 {		
 		for recNum := 1; ; recNum++ {
-			sqlState := make([]uint16, SQLStateLength+1)
+			sqlState := make([]uint16, sqlStateLength+1)
 			var nativeError int
-			message := make([]uint16, ErrorMaxMessageLength + 1)
-			ret := odbc.SQLGetDiagRec(handleType, handle, int16(recNum), uintptr(unsafe.Pointer(&sqlState[0])), &nativeError, uintptr(unsafe.Pointer(&message[0])), ErrorMaxMessageLength, nil)
+			message := make([]uint16, errorMaxMessageLength + 1)
+			ret := odbc.SQLGetDiagRec(handleType, handle, int16(recNum), uintptr(unsafe.Pointer(&sqlState[0])), &nativeError, uintptr(unsafe.Pointer(&message[0])), errorMaxMessageLength, nil)
 			if ret == odbc.SQL_NO_DATA {
 				break
 			} else if !IsError(ret) {

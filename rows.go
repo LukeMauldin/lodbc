@@ -10,36 +10,39 @@ import (
 	"unsafe"
 )
 
+// Implements type database/sql/driver Rows interface
 type rows struct {
-	//Statement handle
+	// Statement handle
 	handle syscall.Handle
 
-	//Descriptor handle
+	// Descriptor handle
 	descHandle syscall.Handle
 
-	//Bool indicating if any rows have been read
+	// Bool indicating if any rows have been read
 	isBeforeFirst bool
 
-	//Store last error
+	// Store last error
 	lastError error
 
-	//Is closed -- allows Close() to be called multiple times without error
+	// Is closed -- allows Close() to be called multiple times without error
 	isClosed bool
 
-	//SQL statement used to generate rows -- used in error reporting
+	// SQL statement used to generate rows -- used in error reporting
 	sqlStmt string
 
-	//Result column defintions
+	// Result column defintions
 	ResultColumnDefs []ResultColumnDef
 	
-	//Result column names
+	// Result column names
 	resultColumnNames []string
 }
 
+// Returns the names of the columns
 func (rows *rows) Columns() []string {
 	return rows.resultColumnNames	
 }
 
+// Next is called to populate the next row of data into the provided slice
 func (rows *rows) Next(dest []driver.Value) error {
 	//If this is the first time rows has been read, setup necessary field level information
 	if rows.isBeforeFirst {
@@ -63,7 +66,7 @@ func (rows *rows) Next(dest []driver.Value) error {
 		//No more data to read
 		return io.EOF
 	} else if IsError(ret) {
-		return ErrorStatement(rows.handle, rows.sqlStmt)
+		return errorStatement(rows.handle, rows.sqlStmt)
 	}
 
 	//Get a row of data
@@ -75,6 +78,7 @@ func (rows *rows) Next(dest []driver.Value) error {
 	return nil
 }
 
+// Close closes the rows iterator
 func (rows *rows) Close() error {
 	//Verify that rows has not already been closed
 	if rows.isClosed {
@@ -84,7 +88,7 @@ func (rows *rows) Close() error {
 	//Close the cursor
 	ret := odbc.SQLCloseCursor(rows.handle)
 	if IsError(ret) {
-		return ErrorStatement(rows.handle, rows.sqlStmt)
+		return errorStatement(rows.handle, rows.sqlStmt)
 	}
 
 	//Mark the rows as closed
@@ -93,17 +97,19 @@ func (rows *rows) Close() error {
 	return nil
 }
 
+//Get a single row of data by calling getField for each column
 func (rows *rows) getRow(dest []driver.Value) error {
 	for index, _ := range rows.ResultColumnDefs {
 		fieldValue, ret := rows.getField(index + 1)
 		if IsError(ret) {
-			return ErrorStatement(rows.handle, rows.sqlStmt)
+			return errorStatement(rows.handle, rows.sqlStmt)
 		}
 		dest[index] = fieldValue
 	}
 	return nil
 }
 
+// Return a single column of data
 func (rows *rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
 	columnDef := rows.ResultColumnDefs[index-1]
 	var fieldInd odbc.SQLValueIndicator
@@ -163,6 +169,7 @@ func (rows *rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
 
 }
 
+// Utility function to format return value
 func formatGetFieldReturn(value interface{}, fieldInd odbc.SQLValueIndicator, getDataRet odbc.SQLReturn) (interface{}, odbc.SQLReturn) {
 	if IsError(getDataRet) {
 		return nil, getDataRet

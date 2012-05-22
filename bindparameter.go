@@ -5,21 +5,37 @@ import (
 	"database/sql/driver"
 	"encoding/gob"
 	"github.com/LukeMauldin/lodbc/odbc"
-	"strconv"
 	"time"
 )
 
+// Registers the time.Time struct with the gob package
 func init() {
 	tp := new(time.Time)
 	gob.Register(tp)
 }
 
+// Struct to hold additional metadata for bind parameters for use in 
+// stmt.Query and stmt.Exec.  ODBC driver benefits and in some cases requires
+// additional fields in order to correctly bind the parameters.
 type BindParameter struct {
-	Data      driver.Value
-	Length    int
+	
+	// Contains the bind parameter value
+	Data      driver.Value 
+	
+	// Valid for strings only.  Specifies the maximum length of the string.
+	// If 0, defaults to the length of the string in Data
+	Length    int 
+	
+	//Valid for float64 only
 	Precision int
+	
+	//Valid for float64 only
 	Scale     int
+	
+	//Valid for time.Time only
 	DateOnly  bool
+	
+	//Specifies the direction of the ODBC parameter.  Defaults to InputParameter
 	Direction ParameterDirection
 }
 
@@ -27,7 +43,6 @@ type BindParameter struct {
  * Implement the Valuer interface to convert a BindParameter to a driver.Value
  * Uses GOB encoding to encode as a []byte to bypass the restriction on driver.Value types
  */
-
 func (bp BindParameter) Value() (driver.Value, error) {
 	//Return nil if bp.Data is nil
 	if isNil(bp.Data) {
@@ -43,19 +58,22 @@ func (bp BindParameter) Value() (driver.Value, error) {
 	return encodedBuffer.Bytes(), nil
 }
 
-type ParameterDirection int16
-
+// Indicates direction of ODBC parameter. Maps to an ODBC parameter direction.
+// Currently the only supported value is input parameter
+type ParameterDirection int
 const (
-	InputParameter       ParameterDirection = 0
-	OutputParameter      ParameterDirection = 1
-	InputOutputParameter ParameterDirection = 2
+	InputParameter       ParameterDirection = 1 << iota
+	// OutputParameter - not suported
+	//InputOutputParameter - not suported
 )
 
 /*
  * Converts ParameterDirection to an ODBC parameter direction
+ * Currently the only supported value is SQL_PARAM_INPUT
  */
-
 func (p ParameterDirection) SQLBindParameterType() odbc.SQLBindParameterType {
+	return odbc.SQL_PARAM_INPUT
+	/*
 	switch p {
 	case InputParameter:
 		return odbc.SQL_PARAM_INPUT
@@ -65,4 +83,5 @@ func (p ParameterDirection) SQLBindParameterType() odbc.SQLBindParameterType {
 		return odbc.SQL_PARAM_INPUT_OUTPUT
 	}
 	panic("Parameter direction: " + strconv.Itoa(int(p)))
+	*/
 }
