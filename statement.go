@@ -167,6 +167,10 @@ func (stmt *statement) Close() error {
 
 	//Mark the statement as closed with the connection
 	stmt.conn.closeStatement(stmt)
+	
+	//Clear the handles
+	stmt.handle = 0
+	stmt.stmtDescHandle = 0
 
 	//Return any error
 	if isError {

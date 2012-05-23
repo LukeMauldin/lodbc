@@ -91,6 +91,12 @@ func (c *connection) Close() error {
 			err = errorConnection(c.handle)
 			isError = true
 		}
+		
+		//Turn AutoCommit back on
+		ret = odbc.SQLSetConnectAttr(c.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQL_AUTOCOMMIT_ON, 0, nil)
+		if IsError(ret) {
+			return errorConnection(c.handle)
+		}
 	}
 
 	// Disconnect connection
@@ -100,12 +106,15 @@ func (c *connection) Close() error {
 		isError = true
 	}
 
-	//Deallocate connection 
+	// Deallocate connection 
 	ret = odbc.SQLFreeHandle(odbc.SQL_HANDLE_DBC, c.handle)
 	if IsError(ret) {
 		err = errorConnection(c.handle)
 		isError = true
 	}
+	
+	// Clear the handle
+	c.handle = 0
 
 	// Return any error
 	if isError {
