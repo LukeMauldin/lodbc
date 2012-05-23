@@ -26,16 +26,16 @@ type BindParameter struct {
 	// If 0, defaults to the length of the string in Data
 	Length    int 
 	
-	//Valid for float64 only
+	// Valid for float64 only
 	Precision int
 	
-	//Valid for float64 only
+	// Valid for float64 only
 	Scale     int
 	
-	//Valid for time.Time only
+	// Valid for time.Time only
 	DateOnly  bool
 	
-	//Specifies the direction of the ODBC parameter.  Defaults to InputParameter
+	// Specifies the direction of the ODBC parameter.  Defaults to InputParameter
 	Direction ParameterDirection
 }
 
@@ -43,7 +43,7 @@ type BindParameter struct {
  * Implement the Valuer interface to convert a BindParameter to a driver.Value
  * Uses GOB encoding to encode as a []byte to bypass the restriction on driver.Value types
  */
-func (bp BindParameter) Value() (driver.Value, error) {
+func (bp *BindParameter) Value() (driver.Value, error) {
 	//Return nil if bp.Data is nil
 	if isNil(bp.Data) {
 		return nil, nil
@@ -84,4 +84,34 @@ func (p ParameterDirection) SQLBindParameterType() odbc.SQLBindParameterType {
 	}
 	panic("Parameter direction: " + strconv.Itoa(int(p)))
 	*/
+}
+
+// Create a new bind parameter for an int
+func NewParameterInt(data driver.Value) *BindParameter {
+	return &BindParameter{Data: data}
+}
+
+// Create a new bind parameter for an int64
+func NewParameterInt64(data driver.Value) *BindParameter {
+	return &BindParameter{Data: data}
+}
+
+// Create a new bind parameter for a float
+func NewParameterFloat(data driver.Value, precision int, scale int) *BindParameter {
+	return &BindParameter{Data: data, Precision: precision, Scale: scale}
+}
+
+// Create a new bind parameter for a date
+func NewParameterDate(data driver.Value) *BindParameter {
+	return &BindParameter{Data: data, DateOnly: true}
+}
+
+// Create a new bind parameter for a date time
+func NewParameterDateTime(data driver.Value) *BindParameter {
+	return &BindParameter{Data: data, DateOnly: false}
+}
+
+// Create a new bind parameter for a string
+func NewParameterString(data driver.Value, length int) *BindParameter {
+	return &BindParameter{Data: data, Length: length}
 }

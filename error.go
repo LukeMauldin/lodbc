@@ -48,6 +48,11 @@ func (e *ODBCError) Error() string {
 	return strings.Join(statusStrings, "\n")
 }
 
+// Checks for SQL error
+func isError(ret odbc.SQLReturn) bool {
+	return !(ret == odbc.SQL_SUCCESS || ret == odbc.SQL_SUCCESS_WITH_INFO || ret == odbc.SQL_NO_DATA)
+}
+
 func errorEnvironment(handle syscall.Handle) error {
 	return handleError(odbc.SQL_HANDLE_ENV, handle, "")
 }
@@ -70,7 +75,7 @@ func handleError(handleType odbc.SQLHandle, handle syscall.Handle, driverInfo st
 			ret := odbc.SQLGetDiagRec(handleType, handle, int16(recNum), uintptr(unsafe.Pointer(&sqlState[0])), &nativeError, uintptr(unsafe.Pointer(&message[0])), errorMaxMessageLength, nil)
 			if ret == odbc.SQL_NO_DATA {
 				break
-			} else if !IsError(ret) {
+			} else if !isError(ret) {
 				sr := StatusRecord{State: syscall.UTF16ToString(sqlState), NativeError: nativeError, Message: syscall.UTF16ToString(message), DriverInfo: driverInfo}
 				statusRecords = append(statusRecords, sr)
 			} else {

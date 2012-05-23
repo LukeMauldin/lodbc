@@ -20,19 +20,19 @@ func init() {
 
 	// Set environment handle for connection pooling
 	ret := odbc.SQLSetEnvAttr(envHandle, odbc.SQL_ATTR_CONNECTION_POOLING, odbc.SQL_CP_ONE_PER_DRIVER, 0)
-	if IsError(ret) {
+	if isError(ret) {
 		panic(errorEnvironment(envHandle))
 	}
 
 	// Allocate the environment handle	
 	ret = odbc.SQLAllocHandle(odbc.SQL_HANDLE_ENV, 0, &envHandle)
-	if IsError(ret) {
+	if isError(ret) {
 		panic(errorEnvironment(envHandle))
 	}
 
 	// Set the environment handle to use ODBC v3
 	ret = odbc.SQLSetEnvAttr(envHandle, odbc.SQL_ATTR_ODBC_VERSION, odbc.SQL_OV_ODBC3, 0)
-	if IsError(ret) {
+	if isError(ret) {
 		panic(errorEnvironment(envHandle))
 	}
 
@@ -44,7 +44,7 @@ func init() {
 // Frees environment handle -- calling this will make the lodbc package unusable because all setup is performed in init()
 func FreeEnvironment() error {
 	ret := odbc.SQLFreeHandle(odbc.SQL_HANDLE_ENV, envHandle)
-	if IsError(ret) {
+	if isError(ret) {
 		return errorEnvironment(envHandle)
 	}
 	return nil
@@ -62,13 +62,13 @@ func SetODBCVersion(version ODBCVersion) {
 	switch version {
 	case ODBCVersion_3:
 		ret := odbc.SQLSetEnvAttr(envHandle, odbc.SQL_ATTR_ODBC_VERSION, odbc.SQL_OV_ODBC3, 0)
-		if IsError(ret) {
+		if isError(ret) {
 			panic(errorEnvironment(envHandle))
 		}
 		break
 	case ODBCVersion_380:
 		ret := odbc.SQLSetEnvAttr(envHandle, odbc.SQL_ATTR_ODBC_VERSION, odbc.SQL_OV_ODBC3_80, 0)
-		if IsError(ret) {
+		if isError(ret) {
 			panic(errorEnvironment(envHandle))
 		}
 		break

@@ -6,6 +6,7 @@ import (
 	"github.com/LukeMauldin/lodbc/odbc"
 	"syscall"
 	"unsafe"
+	"runtime"
 )
 
 // Implements type database/sql/driver Conn interface
@@ -30,20 +31,20 @@ func (c *connection) Prepare(query string) (driver.Stmt, error) {
 	// Allocate the statement handle
 	var stmtHandle syscall.Handle
 	ret := odbc.SQLAllocHandle(odbc.SQL_HANDLE_STMT, c.handle, &stmtHandle)
-	if IsError(ret) {
+	if isError(ret) {
 		return nil, errorConnection(c.handle)
 	}
 
 	// Set the query timeout
 	ret = odbc.SQLSetStmtAttr(stmtHandle, odbc.SQL_ATTR_QUERY_TIMEOUT, int32(queryTimeout.Seconds()), odbc.SQL_IS_INTEGER)
-	if IsError(ret) {
+	if isError(ret) {
 		return nil, errorStatement(stmtHandle, query)
 	}
 
 	// Get the statement descriptor table
 	var stmtDescHandle syscall.Handle
 	ret = odbc.SQLGetStmtAttr(stmtHandle, odbc.SQL_ATTR_APP_PARAM_DESC, uintptr(unsafe.Pointer(&stmtDescHandle)), 0, nil)
-	if IsError(ret) {
+	if isError(ret) {
 		return nil, errorConnection(c.handle)
 	}
 
@@ -52,6 +53,9 @@ func (c *connection) Prepare(query string) (driver.Stmt, error) {
 	
 	// Add to map of statements owned by the connection
 	c.statements[stmt] = true
+	
+	//Add a finalizer
+	runtime.SetFinalizer(stmt, (*statement).Close)
 
 	return stmt, nil
 }
@@ -72,7 +76,6 @@ func (c *connection) Close() error {
 	}
 
 	var err error
-	isError := false
 	
 	// Close all of the statements owned by the connection
 	for key, _ := range c.statements {
@@ -87,42 +90,42 @@ func (c *connection) Close() error {
 	// If the transaction is active, roll it back
 	if c.isTransactionActive {
 		ret := odbc.SQLEndTran(odbc.SQL_HANDLE_DBC, c.handle, odbc.SQL_ROLLBACK)
-		if IsError(ret) {
+		if isError(ret) {
 			err = errorConnection(c.handle)
-			isError = true
 		}
 		
 		//Turn AutoCommit back on
 		ret = odbc.SQLSetConnectAttr(c.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQL_AUTOCOMMIT_ON, 0, nil)
-		if IsError(ret) {
-			return errorConnection(c.handle)
+		if isError(ret) {
+			err = errorConnection(c.handle)
 		}
 	}
 
 	// Disconnect connection
 	ret := odbc.SQLDisconnect(c.handle)
-	if IsError(ret) {
+	if isError(ret) {
 		err = errorConnection(c.handle)
-		isError = true
 	}
 
 	// Deallocate connection 
 	ret = odbc.SQLFreeHandle(odbc.SQL_HANDLE_DBC, c.handle)
-	if IsError(ret) {
+	if isError(ret) {
 		err = errorConnection(c.handle)
-		isError = true
 	}
 	
 	// Clear the handle
 	c.handle = 0
-
-	// Return any error
-	if isError {
-		return err
-	}
-
+	
 	// Set connection to closed
 	c.isClosed = true
+	
+	//Clear the finalizer
+	runtime.SetFinalizer(c, nil)
+
+	// Return any error
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -136,7 +139,7 @@ func (c *connection) Begin() (driver.Tx, error) {
 	}
 
 	ret := odbc.SQLSetConnectAttr(c.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQL_AUTOCOMMIT_OFF, 0, nil)
-	if IsError(ret) {
+	if isError(ret) {
 		return nil, errorConnection(c.handle)
 	}
 	c.isTransactionActive = true

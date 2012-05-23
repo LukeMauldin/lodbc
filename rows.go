@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/LukeMauldin/lodbc/odbc"
 	"io"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -31,22 +32,22 @@ type rows struct {
 	sqlStmt string
 
 	// Result column defintions
-	ResultColumnDefs []ResultColumnDef
-	
+	resultColumnDefs []resultColumnDef
+
 	// Result column names
 	resultColumnNames []string
 }
 
 // Returns the names of the columns
 func (rows *rows) Columns() []string {
-	return rows.resultColumnNames	
+	return rows.resultColumnNames
 }
 
 // Next is called to populate the next row of data into the provided slice
 func (rows *rows) Next(dest []driver.Value) error {
 	//If this is the first time rows has been read, setup necessary field level information
 	if rows.isBeforeFirst {
-		for index, resultColumnDef := range rows.ResultColumnDefs {
+		for index, resultColumnDef := range rows.resultColumnDefs {
 			//Set precision and scale for numeric fields
 			if resultColumnDef.DataType == odbc.SQL_NUMERIC || resultColumnDef.DataType == odbc.SQL_DECIMAL {
 				colIndex := odbc.SQLSMALLINT(index + 1)
@@ -65,7 +66,7 @@ func (rows *rows) Next(dest []driver.Value) error {
 	if ret == odbc.SQL_NO_DATA {
 		//No more data to read
 		return io.EOF
-	} else if IsError(ret) {
+	} else if isError(ret) {
 		return errorStatement(rows.handle, rows.sqlStmt)
 	}
 
@@ -86,22 +87,31 @@ func (rows *rows) Close() error {
 	}
 
 	//Close the cursor
+	var err error
 	ret := odbc.SQLCloseCursor(rows.handle)
-	if IsError(ret) {
-		return errorStatement(rows.handle, rows.sqlStmt)
+	if isError(ret) {
+		err = errorStatement(rows.handle, rows.sqlStmt)
 	}
+
+	//Clear the finalizer
+	runtime.SetFinalizer(rows, nil)
 
 	//Mark the rows as closed
 	rows.isClosed = true
 
+	// Return any error
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-//Get a single row of data by calling getField for each column
+// Get a single row of data by calling getField for each column
 func (rows *rows) getRow(dest []driver.Value) error {
-	for index, _ := range rows.ResultColumnDefs {
+	for index, _ := range rows.resultColumnDefs {
 		fieldValue, ret := rows.getField(index + 1)
-		if IsError(ret) {
+		if isError(ret) {
 			return errorStatement(rows.handle, rows.sqlStmt)
 		}
 		dest[index] = fieldValue
@@ -111,7 +121,7 @@ func (rows *rows) getRow(dest []driver.Value) error {
 
 // Return a single column of data
 func (rows *rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
-	columnDef := rows.ResultColumnDefs[index-1]
+	columnDef := rows.resultColumnDefs[index-1]
 	var fieldInd odbc.SQLValueIndicator
 	switch columnDef.DataType {
 	case odbc.SQL_BIT:
@@ -171,7 +181,7 @@ func (rows *rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
 
 // Utility function to format return value
 func formatGetFieldReturn(value interface{}, fieldInd odbc.SQLValueIndicator, getDataRet odbc.SQLReturn) (interface{}, odbc.SQLReturn) {
-	if IsError(getDataRet) {
+	if isError(getDataRet) {
 		return nil, getDataRet
 	} else if fieldInd == odbc.SQL_NULL_DATA {
 		return nil, odbc.SQL_SUCCESS

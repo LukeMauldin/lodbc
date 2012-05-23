@@ -29,11 +29,6 @@ func FetchRows(db *sql.DB, query string,  tmplt interface{}) ([]interface{}, err
        return result, nil
 }
 
-//Checks for SQL error
-func IsError(ret odbc.SQLReturn) bool {
-	return !(ret == odbc.SQL_SUCCESS || ret == odbc.SQL_SUCCESS_WITH_INFO || ret == odbc.SQL_NO_DATA)
-}
-
 //Converts SQL_NUMERIC_STRUCT to float
 func numericToFloat(inputValue odbc.SQL_NUMERIC_STRUCT) float64 {
 	//Convert numeric data to float
