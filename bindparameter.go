@@ -43,7 +43,7 @@ type BindParameter struct {
  * Implement the Valuer interface to convert a BindParameter to a driver.Value
  * Uses GOB encoding to encode as a []byte to bypass the restriction on driver.Value types
  */
-func (bp *BindParameter) Value() (driver.Value, error) {
+func (bp BindParameter) Value() (driver.Value, error) {
 	//Return nil if bp.Data is nil
 	if isNil(bp.Data) {
 		return nil, nil

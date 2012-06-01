@@ -1,2 +1,3 @@
 -Implement SQLBindCol to get an entire row of data at one time
 -Implement bind parameter for SQL_DECIMAL
+-Support varchar(max) columns
