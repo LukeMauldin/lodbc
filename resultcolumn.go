@@ -25,19 +25,6 @@ func buildResultColumnDefinitions(stmtHandle syscall.Handle, sqlStmt string) ([]
 	if isError(ret) {
 		errorStatement(stmtHandle, sqlStmt)
 	}
-	
-	//If numColumns == 0, attempt to read rows from the next result set
-	if numColumns == 0 {
-		for ret := odbc.SQLMoreResults(stmtHandle); ret == odbc.SQL_SUCCESS; {
-			ret = odbc.SQLNumResultCols(stmtHandle, &numColumns)
-			if isError(ret) {
-				errorStatement(stmtHandle, sqlStmt)
-			}
-			if numColumns > 0 {
-				break
-			}
-		}		
-	}	
 
 	resultColumnDefs := make([]resultColumnDef, 0, numColumns)
 	for colNum, lNumColumns := uint16(1), uint16(numColumns); colNum <= lNumColumns; colNum++ {

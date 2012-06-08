@@ -47,9 +47,18 @@ func (c *connection) Prepare(query string) (driver.Stmt, error) {
 	if isError(ret) {
 		return nil, errorConnection(c.handle)
 	}
+	
+	// Parse query options
+	queryOptions, err := parseQueryOptions(query)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Remove query options from SQL query
+	query = removeOptions(query)
 
 	// Create new statement
-	stmt := &statement{handle: stmtHandle, stmtDescHandle: stmtDescHandle, sqlStmt: query, conn: c}
+	stmt := &statement{handle: stmtHandle, stmtDescHandle: stmtDescHandle, sqlStmt: query, conn: c, queryOptions: queryOptions}
 	
 	// Add to map of statements owned by the connection
 	c.statements[stmt] = true

@@ -35,6 +35,9 @@ type statement struct {
 
 	//Array to store bind parameter values to be sure they stay in scope
 	bindValues []interface{}
+	
+	//SQL statement options
+	queryOptions []QueryOption
 }
 
 func (stmt *statement) bindInt(index int, value int, direction ParameterDirection) error {
@@ -213,6 +216,34 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 	if isError(ret) {
 		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
+	
+	//Check to see if the query option ResultSetNum was passed and if so, iterate through result sets
+	optionValue, optionFound := getOptionValue(stmt.queryOptions, ResultSetNum)
+	if optionFound {
+		for counter, resultSetNum := 0, int(optionValue.(float64)); counter < resultSetNum; counter++ {
+			ret := odbc.SQLMoreResults(stmt.handle)
+			if isError(ret) {
+				return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", stmt.sqlStmt))
+			}
+		}
+	} else {
+		//If query option ResultSetNum was not passed, iterate through result sets until at least one column is found				
+		for {
+			var numColumns int16
+			ret := odbc.SQLNumResultCols(stmt.handle, &numColumns)
+			if isError(ret) {
+				return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", stmt.sqlStmt))
+			}			
+			if numColumns > 0 {
+				break
+			} else {
+				ret := odbc.SQLMoreResults(stmt.handle)
+				if isError(ret) {
+					return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", stmt.sqlStmt))
+				}
+			}
+		}
+	}	
 
 	//Get definition of result columns
 	resultColumnDefs, ret := buildResultColumnDefinitions(stmt.handle, stmt.sqlStmt)
