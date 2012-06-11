@@ -35,7 +35,7 @@ type statement struct {
 
 	//Array to store bind parameter values to be sure they stay in scope
 	bindValues []interface{}
-	
+
 	//SQL statement options
 	queryOptions []QueryOption
 }
@@ -168,17 +168,17 @@ func (stmt *statement) Close() error {
 
 	//Mark the statement as closed with the connection
 	stmt.conn.closeStatement(stmt)
-	
+
 	//Clear the handles
 	stmt.handle = 0
 	stmt.stmtDescHandle = 0
-	
+
 	//Clear the finalizer
 	runtime.SetFinalizer(stmt, nil)
 
 	//Mark the rows as closed
 	stmt.isClosed = true
-	
+
 	//Return any error
 	if err != nil {
 		return err
@@ -216,7 +216,7 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 	if isError(ret) {
 		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
-	
+
 	//Check to see if the query option ResultSetNum was passed and if so, iterate through result sets
 	optionValue, optionFound := getOptionValue(stmt.queryOptions, ResultSetNum)
 	if optionFound {
@@ -227,13 +227,13 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 			}
 		}
 	} else {
-		//If query option ResultSetNum was not passed, iterate through result sets until at least one column is found				
+		//If query option ResultSetNum was not passed, iterate through result sets until at least one column is found
 		for {
 			var numColumns int16
 			ret := odbc.SQLNumResultCols(stmt.handle, &numColumns)
 			if isError(ret) {
 				return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", stmt.sqlStmt))
-			}			
+			}
 			if numColumns > 0 {
 				break
 			} else {
@@ -243,14 +243,14 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 				}
 			}
 		}
-	}	
+	}
 
 	//Get definition of result columns
 	resultColumnDefs, ret := buildResultColumnDefinitions(stmt.handle, stmt.sqlStmt)
 	if isError(ret) {
 		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
-	
+
 	//Make a slice of the column names
 	columnNames := make([]string, len(resultColumnDefs))
 	for index, resultCol := range resultColumnDefs {
@@ -259,7 +259,7 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 
 	//Create rows
 	stmt.rows = &rows{handle: stmt.handle, descHandle: descRowHandle, isBeforeFirst: true, resultColumnDefs: resultColumnDefs, resultColumnNames: columnNames, sqlStmt: stmt.sqlStmt}
-	
+
 	//Add a finalizer
 	runtime.SetFinalizer(stmt.rows, (*rows).Close)
 
@@ -332,7 +332,7 @@ func (stmt *statement) bindParameters(parameters []BindParameter) error {
 
 		//Flatten out pointers
 		elemValue := reflect.Indirect(reflect.ValueOf(parameter.Data)).Interface()
-		
+
 		switch value := elemValue.(type) {
 		case nil:
 			err := stmt.bindNull(index+1, parameter.Direction)
@@ -403,6 +403,12 @@ func (stmt *statement) formatBindValues() string {
 			case []uint16:
 				str := syscall.UTF16ToString(val)
 				strValues = append(strValues, fmt.Sprintf("%v: <string> {%v}", index, str))
+			case *odbc.SQLValueIndicator:
+				if *val == odbc.SQL_NULL_DATA {
+				    strValues = append(strValues, fmt.Sprintf("%v: {NULL}", index))
+				} else {
+				    strValues = append(strValues, fmt.Sprintf("%v: <SQLValueIndicator> %v", index, val))
+				}
 			default:
 				strValues = append(strValues, fmt.Sprintf("%v: Unknown type: <%t>", index, val))
 			}
