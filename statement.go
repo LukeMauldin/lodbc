@@ -117,7 +117,13 @@ func (stmt *statement) bindString(index int, value string, length int, direction
 		length = len(value)
 	}
 	stmt.bindValues[index] = syscall.StringToUTF16(value)
-	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_WCHAR, odbc.SQL_VARCHAR, odbc.SQLULEN(length), 0, odbc.SQLPOINTER(unsafe.Pointer(&stmt.bindValues[index].([]uint16)[0])), 0, nil)
+	var sqlType odbc.SQLDataType
+	if length < 4000 {
+	    sqlType = odbc.SQL_VARCHAR
+	} else {
+	    sqlType = odbc.SQL_LONGVARCHAR
+	}
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_WCHAR, sqlType, odbc.SQLULEN(length), 0, odbc.SQLPOINTER(unsafe.Pointer(&stmt.bindValues[index].([]uint16)[0])), 0, nil)
 	if isError(ret) {
 		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
 	}
