@@ -4,20 +4,19 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"github.com/LukeMauldin/lodbc/odbc"
-	"syscall"
-	"unsafe"
 	"runtime"
+	"unsafe"
 )
 
 // Implements type database/sql/driver Conn interface
 type connection struct {
-	
+
 	// Connection handle
-	handle syscall.Handle
+	handle odbc.SQLHandle
 
 	// Is transaction active
 	isTransactionActive bool
-	
+
 	// Statements owned by the connection
 	statements map[driver.Stmt]bool
 
@@ -27,42 +26,42 @@ type connection struct {
 
 // Prepare returns a prepared statement, bound to this connection
 func (c *connection) Prepare(query string) (driver.Stmt, error) {
-	
+
 	// Allocate the statement handle
-	var stmtHandle syscall.Handle
+	var stmtHandle odbc.SQLHandle
 	ret := odbc.SQLAllocHandle(odbc.SQL_HANDLE_STMT, c.handle, &stmtHandle)
 	if isError(ret) {
 		return nil, errorConnection(c.handle)
 	}
 
 	// Set the query timeout
-	ret = odbc.SQLSetStmtAttr(stmtHandle, odbc.SQL_ATTR_QUERY_TIMEOUT, int32(queryTimeout.Seconds()), odbc.SQL_IS_INTEGER)
+	ret = odbc.SQLSetStmtAttr(stmtHandle, odbc.SQL_ATTR_QUERY_TIMEOUT, odbc.SQLPOINTER(queryTimeout.Seconds()), odbc.SQL_IS_INTEGER)
 	if isError(ret) {
 		return nil, errorStatement(stmtHandle, query)
 	}
 
 	// Get the statement descriptor table
-	var stmtDescHandle syscall.Handle
+	var stmtDescHandle odbc.SQLHandle
 	ret = odbc.SQLGetStmtAttr(stmtHandle, odbc.SQL_ATTR_APP_PARAM_DESC, uintptr(unsafe.Pointer(&stmtDescHandle)), 0, nil)
 	if isError(ret) {
 		return nil, errorConnection(c.handle)
 	}
-	
+
 	// Parse query options
 	queryOptions, err := parseQueryOptions(query)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Remove query options from SQL query
 	query = removeOptions(query)
 
 	// Create new statement
 	stmt := &statement{handle: stmtHandle, stmtDescHandle: stmtDescHandle, sqlStmt: query, conn: c, queryOptions: queryOptions}
-	
+
 	// Add to map of statements owned by the connection
 	c.statements[stmt] = true
-	
+
 	//Add a finalizer
 	runtime.SetFinalizer(stmt, (*statement).Close)
 
@@ -73,7 +72,7 @@ func (c *connection) Prepare(query string) (driver.Stmt, error) {
 // prepared statements and transactions, marking this
 // connection as no longer in use.
 func (c *connection) Close() error {
-	
+
 	// Verify that connHandle is valid
 	if c.handle == 0 {
 		return nil
@@ -85,7 +84,7 @@ func (c *connection) Close() error {
 	}
 
 	var err error
-	
+
 	// Close all of the statements owned by the connection
 	for key, _ := range c.statements {
 		// Skip the statement if it is already nil
@@ -102,9 +101,9 @@ func (c *connection) Close() error {
 		if isError(ret) {
 			err = errorConnection(c.handle)
 		}
-		
+
 		//Turn AutoCommit back on
-		ret = odbc.SQLSetConnectAttr(c.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQL_AUTOCOMMIT_ON, 0, nil)
+		ret = odbc.SQLSetConnectAttr(c.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQLPOINTER(odbc.SQL_AUTOCOMMIT_ON), 0, nil)
 		if isError(ret) {
 			err = errorConnection(c.handle)
 		}
@@ -116,18 +115,18 @@ func (c *connection) Close() error {
 		err = errorConnection(c.handle)
 	}
 
-	// Deallocate connection 
+	// Deallocate connection
 	ret = odbc.SQLFreeHandle(odbc.SQL_HANDLE_DBC, c.handle)
 	if isError(ret) {
 		err = errorConnection(c.handle)
 	}
-	
+
 	// Clear the handle
 	c.handle = 0
-	
+
 	// Set connection to closed
 	c.isClosed = true
-	
+
 	//Clear the finalizer
 	runtime.SetFinalizer(c, nil)
 
@@ -147,7 +146,7 @@ func (c *connection) Begin() (driver.Tx, error) {
 		return nil, fmt.Errorf("Transaction already active for connection")
 	}
 
-	ret := odbc.SQLSetConnectAttr(c.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQL_AUTOCOMMIT_OFF, 0, nil)
+	ret := odbc.SQLSetConnectAttr(c.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQLPOINTER(odbc.SQL_AUTOCOMMIT_OFF), 0, nil)
 	if isError(ret) {
 		return nil, errorConnection(c.handle)
 	}

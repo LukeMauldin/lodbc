@@ -8,26 +8,25 @@ import (
 
 // Metadata about each result column
 type resultColumnDef struct {
-	RecNum    uint16
+	RecNum    odbc.SQLSMALLINT
 	DataType  odbc.SQLDataType
-	Length    int32
-	Precision int32
-	Scale     int32
+	Precision odbc.SQLLEN
+	Scale     odbc.SQLLEN
 	Name      string
 }
 
 // Build metadata for each result column
-func buildResultColumnDefinitions(stmtHandle syscall.Handle, sqlStmt string) ([]resultColumnDef, odbc.SQLReturn) {
-	
+func buildResultColumnDefinitions(stmtHandle odbc.SQLHandle, sqlStmt string) ([]resultColumnDef, odbc.SQLReturn) {
+
 	//Get number of result columns
-	var numColumns int16
+	var numColumns odbc.SQLSMALLINT
 	ret := odbc.SQLNumResultCols(stmtHandle, &numColumns)
 	if isError(ret) {
 		errorStatement(stmtHandle, sqlStmt)
 	}
 
 	resultColumnDefs := make([]resultColumnDef, 0, numColumns)
-	for colNum, lNumColumns := uint16(1), uint16(numColumns); colNum <= lNumColumns; colNum++ {
+	for colNum, lNumColumns := odbc.SQLSMALLINT(1), numColumns; colNum <= lNumColumns; colNum++ {
 		//Get odbc.SQL type
 		var sqlType odbc.SQLLEN
 		ret := odbc.SQLColAttribute(stmtHandle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_TYPE, 0, 0, nil, &sqlType)
@@ -35,6 +34,7 @@ func buildResultColumnDefinitions(stmtHandle syscall.Handle, sqlStmt string) ([]
 			errorStatement(stmtHandle, sqlStmt)
 		}
 
+		/* Disabled because it is no longer needed
 		//Get length
 		var length odbc.SQLLEN
 		ret = odbc.SQLColAttribute(stmtHandle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_LENGTH, 0, 0, nil, &length)
@@ -43,9 +43,9 @@ func buildResultColumnDefinitions(stmtHandle syscall.Handle, sqlStmt string) ([]
 		}
 
 		//If the type is a CHAR or VARCHAR, add 4 to the length
-		if sqlType == odbc.SQL_CHAR || sqlType == odbc.SQL_VARCHAR || sqlType == odbc.SQL_WCHAR || sqlType == odbc.SQL_WVARCHAR {
+		if odbc.SQLDataType(sqlType) == odbc.SQL_CHAR || odbc.SQLDataType(sqlType)  == odbc.SQL_VARCHAR || odbc.SQLDataType(sqlType)  == odbc.SQL_WCHAR || odbc.SQLDataType(sqlType)  == odbc.SQL_WVARCHAR {
 			length = length + 4
-		}
+		} */
 
 		//Get name
 		const namelength = 1000
@@ -58,7 +58,7 @@ func buildResultColumnDefinitions(stmtHandle syscall.Handle, sqlStmt string) ([]
 
 		//For numeric and decimal types, get the precision
 		var precision odbc.SQLLEN
-		if sqlType == odbc.SQL_NUMERIC || sqlType == odbc.SQL_DECIMAL {
+		if odbc.SQLDataType(sqlType) == odbc.SQL_NUMERIC || odbc.SQLDataType(sqlType) == odbc.SQL_DECIMAL {
 			ret = odbc.SQLColAttribute(stmtHandle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_PRECISION, 0, 0, nil, &precision)
 			if isError(ret) {
 				errorStatement(stmtHandle, sqlStmt)
@@ -67,14 +67,14 @@ func buildResultColumnDefinitions(stmtHandle syscall.Handle, sqlStmt string) ([]
 
 		//For numeric and decimal types, get the scale
 		var scale odbc.SQLLEN
-		if sqlType == odbc.SQL_NUMERIC || sqlType == odbc.SQL_DECIMAL {
+		if odbc.SQLDataType(sqlType) == odbc.SQL_NUMERIC || odbc.SQLDataType(sqlType) == odbc.SQL_DECIMAL {
 			ret = odbc.SQLColAttribute(stmtHandle, odbc.SQLUSMALLINT(colNum), odbc.SQL_COLUMN_SCALE, 0, 0, nil, &scale)
 			if isError(ret) {
 				errorStatement(stmtHandle, sqlStmt)
 			}
 		}
 
-		col := resultColumnDef{RecNum: colNum, DataType: odbc.SQLDataType(sqlType), Name: name, Length: int32(length), Precision: int32(precision), Scale: int32(scale)}
+		col := resultColumnDef{RecNum: colNum, DataType: odbc.SQLDataType(sqlType), Name: name, Precision: precision, Scale: scale}
 		resultColumnDefs = append(resultColumnDefs, col)
 	}
 

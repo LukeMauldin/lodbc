@@ -6,6 +6,7 @@ import (
 	"github.com/LukeMauldin/lodbc/odbc"
 	"io"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -14,10 +15,10 @@ import (
 // Implements type database/sql/driver Rows interface
 type rows struct {
 	// Statement handle
-	handle syscall.Handle
+	handle odbc.SQLHandle
 
 	// Descriptor handle
-	descHandle syscall.Handle
+	descHandle odbc.SQLHandle
 
 	// Bool indicating if any rows have been read
 	isBeforeFirst bool
@@ -51,9 +52,9 @@ func (rows *rows) Next(dest []driver.Value) error {
 			//Set precision and scale for numeric fields
 			if resultColumnDef.DataType == odbc.SQL_NUMERIC || resultColumnDef.DataType == odbc.SQL_DECIMAL {
 				colIndex := odbc.SQLSMALLINT(index + 1)
-				odbc.SQLSetDescField(rows.descHandle, colIndex, odbc.SQL_DESC_TYPE, odbc.SQL_C_NUMERIC, 0)
-				odbc.SQLSetDescField(rows.descHandle, colIndex, odbc.SQL_DESC_PRECISION, resultColumnDef.Precision, 0)
-				odbc.SQLSetDescField(rows.descHandle, colIndex, odbc.SQL_DESC_SCALE, resultColumnDef.Scale, 0)
+				odbc.SQLSetDescField(rows.descHandle, colIndex, odbc.SQL_DESC_TYPE, uintptr(odbc.SQL_C_NUMERIC), 0)
+				odbc.SQLSetDescField(rows.descHandle, colIndex, odbc.SQL_DESC_PRECISION, uintptr(resultColumnDef.Precision), 0)
+				odbc.SQLSetDescField(rows.descHandle, colIndex, odbc.SQL_DESC_SCALE, uintptr(resultColumnDef.Scale), 0)
 			}
 		}
 
@@ -122,53 +123,68 @@ func (rows *rows) getRow(dest []driver.Value) error {
 // Return a single column of data
 func (rows *rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
 	columnDef := rows.resultColumnDefs[index-1]
-	var fieldInd odbc.SQLValueIndicator
+	var fieldInd odbc.SQLLEN
 	switch columnDef.DataType {
 	case odbc.SQL_BIT:
 		var value bool
 		valuePtr := uintptr(unsafe.Pointer(&value))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_BIT, valuePtr, 0, &fieldInd)
+		ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_BIT, valuePtr, 0, &fieldInd)
 		return formatGetFieldReturn(value, fieldInd, ret)
 	case odbc.SQL_INTEGER, odbc.SQL_SMALLINT, odbc.SQL_TINYINT:
 		var value int
 		valuePtr := uintptr(unsafe.Pointer(&value))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_LONG, valuePtr, 0, &fieldInd)
+		ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_LONG, valuePtr, 0, &fieldInd)
 		return formatGetFieldReturn(value, fieldInd, ret)
 	case odbc.SQL_BIGINT:
 		var value int64
 		valuePtr := uintptr(unsafe.Pointer(&value))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_LONG, valuePtr, 0, &fieldInd)
+		ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_LONG, valuePtr, 0, &fieldInd)
 		return formatGetFieldReturn(value, fieldInd, ret)
 	case odbc.SQL_FLOAT:
 		var value float64
 		valuePtr := uintptr(unsafe.Pointer(&value))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_FLOAT, valuePtr, 0, &fieldInd)
+		ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_FLOAT, valuePtr, 0, &fieldInd)
 		return formatGetFieldReturn(value, fieldInd, ret)
 	case odbc.SQL_DOUBLE, odbc.SQL_REAL:
 		var value float64
 		valuePtr := uintptr(unsafe.Pointer(&value))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_DOUBLE, valuePtr, 0, &fieldInd)
+		ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_DOUBLE, valuePtr, 0, &fieldInd)
 		return formatGetFieldReturn(value, fieldInd, ret)
 	case odbc.SQL_NUMERIC, odbc.SQL_DECIMAL:
 		var value odbc.SQL_NUMERIC_STRUCT
 		valuePtr := uintptr(unsafe.Pointer(&value))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_ARD_TYPE, valuePtr, 0, &fieldInd)
+		ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_ARD_TYPE, valuePtr, 0, &fieldInd)
 		return formatGetFieldReturn(numericToFloat(value), fieldInd, ret)
-	case odbc.SQL_CHAR, odbc.SQL_VARCHAR, odbc.SQL_LONGVARCHAR, odbc.SQL_WCHAR, odbc.SQL_WVARCHAR:
-		value := make([]uint16, columnDef.Length*2+2)
-		valuePtr := uintptr(unsafe.Pointer(&value[0]))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_WCHAR, valuePtr, odbc.SQLLEN(columnDef.Length*2+2), &fieldInd)
-		return formatGetFieldReturn(syscall.UTF16ToString(value), fieldInd, ret)
+	case odbc.SQL_CHAR, odbc.SQL_VARCHAR, odbc.SQL_LONGVARCHAR, odbc.SQL_WCHAR, odbc.SQL_WVARCHAR, odbc.SQL_SS_XML:
+		//Must read string in chunks
+		stringParts := make([]string, 0)
+		for {
+			chunkSize := 4096
+			valueChunk := make([]uint16, chunkSize*2)
+			valueChunkPtr := uintptr(unsafe.Pointer(&valueChunk[0]))
+			ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_WCHAR, valueChunkPtr, odbc.SQLLEN(chunkSize*2*2), &fieldInd)
+			if isError(ret) || odbc.SQLLEN(ret) == odbc.SQL_NULL_DATA {
+				return formatGetFieldReturn(nil, fieldInd, ret)
+			} else if ret == odbc.SQL_NO_DATA {
+				//All data has been retrieved
+				break
+			} else if ret == odbc.SQL_SUCCESS {
+				stringParts = append(stringParts, syscall.UTF16ToString(valueChunk))
+				break
+			}
+			stringParts = append(stringParts, syscall.UTF16ToString(valueChunk))
+		}
+		return formatGetFieldReturn(strings.Join(stringParts, ""), odbc.SQLLEN(0), odbc.SQL_SUCCESS)
 	case odbc.SQL_TYPE_DATE:
 		var value odbc.SQL_DATE_STRUCT
 		valuePtr := uintptr(unsafe.Pointer(&value))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_DATE, valuePtr, 0, &fieldInd)
+		ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_DATE, valuePtr, 0, &fieldInd)
 		time := time.Date(int(value.Year), time.Month(value.Month), int(value.Day), 0, 0, 0, 0, time.UTC)
 		return formatGetFieldReturn(time, fieldInd, ret)
 	case odbc.SQL_TYPE_TIMESTAMP:
 		var value odbc.SQL_TIMESTAMP_STRUCT
 		valuePtr := uintptr(unsafe.Pointer(&value))
-		ret = odbc.SQLGetData(rows.handle, uint16(index), odbc.SQL_C_TIMESTAMP, valuePtr, 0, &fieldInd)
+		ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_TIMESTAMP, valuePtr, 0, &fieldInd)
 		time := time.Date(int(value.Year), time.Month(value.Month), int(value.Day), int(value.Hour), int(value.Minute), int(value.Second), int(value.Faction), time.UTC)
 		return formatGetFieldReturn(time, fieldInd, ret)
 	default:
@@ -180,7 +196,7 @@ func (rows *rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
 }
 
 // Utility function to format return value
-func formatGetFieldReturn(value interface{}, fieldInd odbc.SQLValueIndicator, getDataRet odbc.SQLReturn) (interface{}, odbc.SQLReturn) {
+func formatGetFieldReturn(value interface{}, fieldInd odbc.SQLLEN, getDataRet odbc.SQLReturn) (interface{}, odbc.SQLReturn) {
 	if isError(getDataRet) {
 		return nil, getDataRet
 	} else if fieldInd == odbc.SQL_NULL_DATA {

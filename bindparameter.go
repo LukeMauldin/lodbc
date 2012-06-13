@@ -14,27 +14,27 @@ func init() {
 	gob.Register(tp)
 }
 
-// Struct to hold additional metadata for bind parameters for use in 
+// Struct to hold additional metadata for bind parameters for use in
 // stmt.Query and stmt.Exec.  ODBC driver benefits and in some cases requires
 // additional fields in order to correctly bind the parameters.
 type BindParameter struct {
-	
+
 	// Contains the bind parameter value
-	Data      driver.Value 
-	
+	Data driver.Value
+
 	// Valid for strings only.  Specifies the maximum length of the string.
 	// If 0, defaults to the length of the string in Data
-	Length    int 
-	
+	Length int
+
 	// Valid for float64 only
 	Precision int
-	
+
 	// Valid for float64 only
-	Scale     int
-	
+	Scale int
+
 	// Valid for time.Time only
-	DateOnly  bool
-	
+	DateOnly bool
+
 	// Specifies the direction of the ODBC parameter.  Defaults to InputParameter
 	Direction ParameterDirection
 }
@@ -61,8 +61,9 @@ func (bp BindParameter) Value() (driver.Value, error) {
 // Indicates direction of ODBC parameter. Maps to an ODBC parameter direction.
 // Currently the only supported value is input parameter
 type ParameterDirection int
+
 const (
-	InputParameter       ParameterDirection = 1 << iota
+	InputParameter ParameterDirection = 1 << iota
 	// OutputParameter - not suported
 	//InputOutputParameter - not suported
 )
@@ -71,18 +72,18 @@ const (
  * Converts ParameterDirection to an ODBC parameter direction
  * Currently the only supported value is SQL_PARAM_INPUT
  */
-func (p ParameterDirection) SQLBindParameterType() odbc.SQLBindParameterType {
+func (p ParameterDirection) SQLBindParameterType() odbc.SQLSMALLINT {
 	return odbc.SQL_PARAM_INPUT
 	/*
-	switch p {
-	case InputParameter:
-		return odbc.SQL_PARAM_INPUT
-	case OutputParameter:
-		return odbc.SQL_PARAM_OUTPUT
-	case InputOutputParameter:
-		return odbc.SQL_PARAM_INPUT_OUTPUT
-	}
-	panic("Parameter direction: " + strconv.Itoa(int(p)))
+		switch p {
+		case InputParameter:
+			return odbc.SQL_PARAM_INPUT
+		case OutputParameter:
+			return odbc.SQL_PARAM_OUTPUT
+		case InputOutputParameter:
+			return odbc.SQL_PARAM_INPUT_OUTPUT
+		}
+		panic("Parameter direction: " + strconv.Itoa(int(p)))
 	*/
 }
 

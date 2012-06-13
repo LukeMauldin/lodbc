@@ -20,7 +20,7 @@ func (tx *transaction) Rollback() error {
 }
 
 // Commit or rollback transaction in consistent manner
-func (tx *transaction) completeTransaction(completeType odbc.SQLTransactionOption) error {
+func (tx *transaction) completeTransaction(completeType odbc.SQLSMALLINT) error {
 	//Complete transaction by either committing or rolling back
 	ret := odbc.SQLEndTran(odbc.SQL_HANDLE_DBC, tx.conn.handle, completeType)
 	if isError(ret) {
@@ -29,7 +29,7 @@ func (tx *transaction) completeTransaction(completeType odbc.SQLTransactionOptio
 
 	//Make transaction as finished and turn auto commit back on
 	tx.conn.isTransactionActive = false
-	ret = odbc.SQLSetConnectAttr(tx.conn.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQL_AUTOCOMMIT_ON, 0, nil)
+	ret = odbc.SQLSetConnectAttr(tx.conn.handle, odbc.SQL_ATTR_AUTOCOMMIT, odbc.SQLPOINTER(odbc.SQL_AUTOCOMMIT_ON), 0, nil)
 	if isError(ret) {
 		return errorConnection(tx.conn.handle)
 	}

@@ -3,7 +3,6 @@ package lodbc
 import (
 	"database/sql"
 	"github.com/LukeMauldin/lodbc/odbc"
-	"syscall"
 	"time"
 )
 
@@ -13,7 +12,7 @@ var (
 )
 
 // Shared global environment
-var envHandle syscall.Handle
+var envHandle odbc.SQLHandle
 
 // Allocates shared environment
 func init() {
@@ -24,7 +23,7 @@ func init() {
 		panic(errorEnvironment(envHandle))
 	}
 
-	// Allocate the environment handle	
+	// Allocate the environment handle
 	ret = odbc.SQLAllocHandle(odbc.SQL_HANDLE_ENV, 0, &envHandle)
 	if isError(ret) {
 		panic(errorEnvironment(envHandle))
@@ -52,6 +51,7 @@ func FreeEnvironment() error {
 
 // Enumeration for supported ODBC version
 type ODBCVersion int
+
 const (
 	ODBCVersion_3   ODBCVersion = 1
 	ODBCVersion_380 ODBCVersion = 2

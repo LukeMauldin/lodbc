@@ -1,32 +1,32 @@
 package lodbc
 
 import (
+	"database/sql"
 	"github.com/LukeMauldin/lodbc/odbc"
 	"reflect"
-	"database/sql"
 )
 
 // Utility function to quickly return rows from the database
-func FetchRows(db *sql.DB, query string,  tmplt interface{}) ([]interface{}, error) {
-       rows, err := db.Query(query)
-       if err != nil {
-               return nil, err
-       }
-       defer rows.Close()
-       result := make([]interface{}, 0)
-       for rows.Next() {
-               s := reflect.ValueOf(tmplt).Elem()
-               row := make([]interface{}, s.NumField())
-               for i := 0; i < s.NumField(); i++ {
-                       row[i] = s.Field(i).Addr().Interface()
-               }
-               err := rows.Scan(row...)
-               if err != nil {
-                       return nil, err
-               }
-               result = append(result, reflect.Indirect(reflect.ValueOf(tmplt)).Interface())
-       }
-       return result, nil
+func FetchRows(db *sql.DB, query string, tmplt interface{}) ([]interface{}, error) {
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]interface{}, 0)
+	for rows.Next() {
+		s := reflect.ValueOf(tmplt).Elem()
+		row := make([]interface{}, s.NumField())
+		for i := 0; i < s.NumField(); i++ {
+			row[i] = s.Field(i).Addr().Interface()
+		}
+		err := rows.Scan(row...)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, reflect.Indirect(reflect.ValueOf(tmplt)).Interface())
+	}
+	return result, nil
 }
 
 //Converts SQL_NUMERIC_STRUCT to float

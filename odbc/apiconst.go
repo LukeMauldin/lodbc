@@ -1,11 +1,7 @@
 package odbc
 
-import (
-	"syscall"
-)
-
-//SQL Handle const
-type SQLHandle syscall.Handle
+//SQL Handle
+type SQLHandle uintptr
 
 //SQL general types
 type SQLCHAR uint8
@@ -13,30 +9,30 @@ type SQLSCHAR int8
 type SQLSMALLINT int16
 type SQLUSMALLINT uint16
 type SQLINTEGER int32
-type SQLPOINTER syscall.Handle
+type SQLPOINTER uintptr
 type SQLUINTEGER uint32
 type SQLLEN int64
 type SQLULEN uint64
 
 const (
-	SQL_HANDLE_ENV  = 1
-	SQL_HANDLE_DBC  = 2
-	SQL_HANDLE_STMT = 3
-	SQL_HANDLE_DESC = 4
+	SQL_HANDLE_ENV  SQLSMALLINT = 1
+	SQL_HANDLE_DBC  SQLSMALLINT = 2
+	SQL_HANDLE_STMT SQLSMALLINT = 3
+	SQL_HANDLE_DESC SQLSMALLINT = 4
 )
 
 //SQL Return codes
-type SQLReturn int16
+type SQLReturn SQLSMALLINT
 
 const (
-	SQL_SUCCESS              = 0
-	SQL_SUCCESS_WITH_INFO    = 1
-	SQL_NO_DATA              = 100
-	SQL_PARAM_DATA_AVAILABLE = 101
-	SQL_ERROR                = -1
-	SQL_INVALID_HANDLE       = -2
-	SQL_STILL_EXECUTING      = 2
-	SQL_NEED_DATA            = 99
+	SQL_SUCCESS              SQLReturn = 0
+	SQL_SUCCESS_WITH_INFO    SQLReturn = 1
+	SQL_NO_DATA              SQLReturn = 100
+	SQL_PARAM_DATA_AVAILABLE SQLReturn = 101
+	SQL_ERROR                SQLReturn = -1
+	SQL_INVALID_HANDLE       SQLReturn = -2
+	SQL_STILL_EXECUTING      SQLReturn = 2
+	SQL_NEED_DATA            SQLReturn = 99
 )
 
 //ODBC Version
@@ -52,7 +48,7 @@ const (
 	SQL_ATTR_CP_MATCH           = 202
 )
 
-//Options for SQLDriverConnect 
+//Options for SQLDriverConnect
 const (
 	SQL_DRIVER_NOPROMPT = 0
 )
@@ -66,50 +62,51 @@ const (
 type SQLDataType SQLSMALLINT
 
 const (
-	SQL_UNKNOWN_TYPE   = 0
-	SQL_CHAR           = 1
-	SQL_NUMERIC        = 2
-	SQL_DECIMAL        = 3
-	SQL_INTEGER        = 4
-	SQL_SMALLINT       = 5
-	SQL_FLOAT          = 6
-	SQL_REAL           = 7
-	SQL_DOUBLE         = 8
-	SQL_DATE           = 9
-	SQL_TIME           = 10
-	SQL_VARCHAR        = 12
-	SQL_TYPE_DATE      = 91
-	SQL_TYPE_TIME      = 92
-	SQL_TYPE_TIMESTAMP = 93
-	SQL_TIMESTAMP      = 11
-	SQL_LONGVARCHAR    = -1
-	SQL_BINARY         = -2
-	SQL_VARBINARY      = -3
-	SQL_LONGVARBINARY  = -4
-	SQL_BIGINT         = -5
-	SQL_TINYINT        = -6
-	SQL_BIT            = -7
-	SQL_WCHAR          = -8
-	SQL_WVARCHAR       = -9
+	SQL_UNKNOWN_TYPE   SQLDataType = 0
+	SQL_CHAR           SQLDataType = 1
+	SQL_NUMERIC        SQLDataType = 2
+	SQL_DECIMAL        SQLDataType = 3
+	SQL_INTEGER        SQLDataType = 4
+	SQL_SMALLINT       SQLDataType = 5
+	SQL_FLOAT          SQLDataType = 6
+	SQL_REAL           SQLDataType = 7
+	SQL_DOUBLE         SQLDataType = 8
+	SQL_DATE           SQLDataType = 9
+	SQL_TIME           SQLDataType = 10
+	SQL_VARCHAR        SQLDataType = 12
+	SQL_TYPE_DATE      SQLDataType = 91
+	SQL_TYPE_TIME      SQLDataType = 92
+	SQL_TYPE_TIMESTAMP SQLDataType = 93
+	SQL_TIMESTAMP      SQLDataType = 11
+	SQL_LONGVARCHAR    SQLDataType = -1
+	SQL_BINARY         SQLDataType = -2
+	SQL_VARBINARY      SQLDataType = -3
+	SQL_LONGVARBINARY  SQLDataType = -4
+	SQL_BIGINT         SQLDataType = -5
+	SQL_TINYINT        SQLDataType = -6
+	SQL_BIT            SQLDataType = -7
+	SQL_WCHAR          SQLDataType = -8
+	SQL_WVARCHAR       SQLDataType = -9
+	SQL_SS_XML         SQLDataType = -152
 )
 
 //C data types
 type CDataType SQLSMALLINT
 
 const (
-	SQL_C_CHAR      = SQL_CHAR
-	SQL_C_LONG      = SQL_INTEGER
-	SQL_C_SHORT     = SQL_SMALLINT
-	SQL_C_FLOAT     = SQL_REAL
-	SQL_C_DOUBLE    = SQL_DOUBLE
-	SQL_C_NUMERIC   = SQL_NUMERIC
-	SQL_C_DATE      = SQL_DATE
-	SQL_C_TIME      = SQL_TIME
-	SQL_C_TIMESTAMP = SQL_TIMESTAMP
-	SQL_C_BINARY    = SQL_BINARY
-	SQL_C_BIT       = SQL_BIT
-	SQL_C_WCHAR     = SQL_WCHAR
-	SQL_C_DEFAULT   = 99
+	SQL_C_CHAR      CDataType = CDataType(SQL_CHAR)
+	SQL_C_LONG      CDataType = CDataType(SQL_INTEGER)
+	SQL_C_SHORT     CDataType = CDataType(SQL_SMALLINT)
+	SQL_C_FLOAT     CDataType = CDataType(SQL_REAL)
+	SQL_C_DOUBLE    CDataType = CDataType(SQL_DOUBLE)
+	SQL_C_NUMERIC   CDataType = CDataType(SQL_NUMERIC)
+	SQL_C_DATE      CDataType = CDataType(SQL_DATE)
+	SQL_C_TIME      CDataType = CDataType(SQL_TIME)
+	SQL_C_TIMESTAMP CDataType = CDataType(SQL_TIMESTAMP)
+	SQL_C_BINARY    CDataType = CDataType(SQL_BINARY)
+	SQL_C_BIT       CDataType = CDataType(SQL_BIT)
+	SQL_C_WCHAR     CDataType = CDataType(SQL_WCHAR)
+	SQL_C_DEFAULT   CDataType = CDataType(99)
 )
 
 //Misc flags
@@ -118,23 +115,19 @@ const (
 )
 
 //SQL Transaction options
-type SQLTransactionOption int16
-
 const (
-	SQL_COMMIT   = 0
-	SQL_ROLLBACK = 1
+	SQL_COMMIT   SQLSMALLINT = 0
+	SQL_ROLLBACK SQLSMALLINT = 1
 )
 
 //SQLBindParameter options
-type SQLBindParameterType SQLSMALLINT
-
 const (
-	SQL_PARAM_TYPE_UNKNOWN = 0
-	SQL_PARAM_INPUT        = 1
-	SQL_PARAM_INPUT_OUTPUT = 2
-	SQL_RESULT_COL         = 3
-	SQL_PARAM_OUTPUT       = 4
-	SQL_RETURN_VALUE       = 5
+	SQL_PARAM_TYPE_UNKNOWN SQLSMALLINT = 0
+	SQL_PARAM_INPUT        SQLSMALLINT = 1
+	SQL_PARAM_INPUT_OUTPUT SQLSMALLINT = 2
+	SQL_RESULT_COL         SQLSMALLINT = 3
+	SQL_PARAM_OUTPUT       SQLSMALLINT = 4
+	SQL_RETURN_VALUE       SQLSMALLINT = 5
 )
 
 //SQL descriptors
@@ -171,11 +164,9 @@ const (
 )
 
 //Special length/indicator values
-type SQLValueIndicator SQLLEN
-
 const (
-	SQL_NULL_DATA    SQLValueIndicator = -1
-	SQL_DATA_AT_EXEC SQLValueIndicator = -2
+	SQL_NULL_DATA    SQLLEN = -1
+	SQL_DATA_AT_EXEC SQLLEN = -2
 )
 
 type SQL_NUMERIC_STRUCT struct {
@@ -208,29 +199,25 @@ type SQL_TIMESTAMP_STRUCT struct {
 }
 
 //Connection attributes
-type SQLConnectionAttribute SQLINTEGER
-
 const (
-	SQL_ATTR_AUTOCOMMIT    = 102
-	SQL_AUTOCOMMIT_OFF     = 0
-	SQL_AUTOCOMMIT_ON      = 1
-	SQL_AUTOCOMMIT_DEFAULT = SQL_AUTOCOMMIT_ON
+	SQL_ATTR_AUTOCOMMIT    SQLINTEGER = 102
+	SQL_AUTOCOMMIT_OFF     SQLINTEGER = 0
+	SQL_AUTOCOMMIT_ON      SQLINTEGER = 1
+	SQL_AUTOCOMMIT_DEFAULT SQLINTEGER = SQL_AUTOCOMMIT_ON
 )
 
 //Statement attributes
-type SQLStatementAttribute SQLINTEGER
-
 const (
-	SQL_QUERY_TIMEOUT           = 0
-	SQL_MAX_ROWS                = 1
-	SQL_NOSCAN                  = 2
-	SQL_ATTR_QUERY_TIMEOUT      = SQL_QUERY_TIMEOUT
-	SQL_ATTR_APP_ROW_DESC       = 10010
-	SQL_ATTR_APP_PARAM_DESC     = 10011
-	SQL_ATTR_IMP_ROW_DESC       = 10012
-	SQL_ATTR_IMP_PARAM_DESC     = 10013
-	SQL_ATTR_CURSOR_SCROLLABLE  = -1
-	SQL_ATTR_CURSOR_SENSITIVITY = -2
+	SQL_QUERY_TIMEOUT           SQLINTEGER = 0
+	SQL_MAX_ROWS                SQLINTEGER = 1
+	SQL_NOSCAN                  SQLINTEGER = 2
+	SQL_ATTR_QUERY_TIMEOUT      SQLINTEGER = SQL_QUERY_TIMEOUT
+	SQL_ATTR_APP_ROW_DESC       SQLINTEGER = 10010
+	SQL_ATTR_APP_PARAM_DESC     SQLINTEGER = 10011
+	SQL_ATTR_IMP_ROW_DESC       SQLINTEGER = 10012
+	SQL_ATTR_IMP_PARAM_DESC     SQLINTEGER = 10013
+	SQL_ATTR_CURSOR_SCROLLABLE  SQLINTEGER = -1
+	SQL_ATTR_CURSOR_SENSITIVITY SQLINTEGER = -2
 )
 
 //Code indicating that the application row descriptor specifies the data type

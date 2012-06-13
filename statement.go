@@ -7,19 +7,19 @@ import (
 	"fmt"
 	"github.com/LukeMauldin/lodbc/odbc"
 	"reflect"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
 	"unsafe"
-	"runtime"
 )
 
 type statement struct {
 	//Statement handle
-	handle syscall.Handle
+	handle odbc.SQLHandle
 
 	//Statement descriptor handle
-	stmtDescHandle syscall.Handle
+	stmtDescHandle odbc.SQLHandle
 
 	//Current executing sql statement
 	sqlStmt string
@@ -119,9 +119,9 @@ func (stmt *statement) bindString(index int, value string, length int, direction
 	stmt.bindValues[index] = syscall.StringToUTF16(value)
 	var sqlType odbc.SQLDataType
 	if length < 4000 {
-	    sqlType = odbc.SQL_VARCHAR
+		sqlType = odbc.SQL_VARCHAR
 	} else {
-	    sqlType = odbc.SQL_LONGVARCHAR
+		sqlType = odbc.SQL_LONGVARCHAR
 	}
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_WCHAR, sqlType, odbc.SQLULEN(length), 0, odbc.SQLPOINTER(unsafe.Pointer(&stmt.bindValues[index].([]uint16)[0])), 0, nil)
 	if isError(ret) {
@@ -211,13 +211,14 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 	}
 
 	//Execute SQL statement
-	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(stmt.sqlStmt), odbc.SQL_NTS)
+	sqlStmtSqlPtr := (*odbc.SQLCHAR)(unsafe.Pointer(syscall.StringToUTF16Ptr(stmt.sqlStmt)))
+	ret := odbc.SQLExecDirect(stmt.handle, sqlStmtSqlPtr, odbc.SQL_NTS)
 	if isError(ret) {
 		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
 
 	//Get row descriptor handle
-	var descRowHandle syscall.Handle
+	var descRowHandle odbc.SQLHandle
 	ret = odbc.SQLGetStmtAttr(stmt.handle, odbc.SQL_ATTR_APP_ROW_DESC, uintptr(unsafe.Pointer(&descRowHandle)), 0, nil)
 	if isError(ret) {
 		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\nBind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
@@ -235,7 +236,7 @@ func (stmt *statement) Query(args []driver.Value) (driver.Rows, error) {
 	} else {
 		//If query option ResultSetNum was not passed, iterate through result sets until at least one column is found
 		for {
-			var numColumns int16
+			var numColumns odbc.SQLSMALLINT
 			ret := odbc.SQLNumResultCols(stmt.handle, &numColumns)
 			if isError(ret) {
 				return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v", stmt.sqlStmt))
@@ -290,7 +291,8 @@ func (stmt *statement) Exec(args []driver.Value) (driver.Result, error) {
 	}
 
 	//Execute SQL statement
-	ret := odbc.SQLExecDirect(stmt.handle, syscall.StringToUTF16Ptr(stmt.sqlStmt), odbc.SQL_NTS)
+	sqlStmtSqlPtr := (*odbc.SQLCHAR)(unsafe.Pointer(syscall.StringToUTF16Ptr(stmt.sqlStmt)))
+	ret := odbc.SQLExecDirect(stmt.handle, sqlStmtSqlPtr, odbc.SQL_NTS)
 	if isError(ret) {
 		return nil, errorStatement(stmt.handle, fmt.Sprintf("SQL Stmt: %v\n Bind Values: %v", stmt.sqlStmt, stmt.formatBindValues()))
 	}
@@ -409,11 +411,11 @@ func (stmt *statement) formatBindValues() string {
 			case []uint16:
 				str := syscall.UTF16ToString(val)
 				strValues = append(strValues, fmt.Sprintf("%v: <string> {%v}", index, str))
-			case *odbc.SQLValueIndicator:
+			case *odbc.SQLLEN:
 				if *val == odbc.SQL_NULL_DATA {
-				    strValues = append(strValues, fmt.Sprintf("%v: {NULL}", index))
+					strValues = append(strValues, fmt.Sprintf("%v: {NULL}", index))
 				} else {
-				    strValues = append(strValues, fmt.Sprintf("%v: <SQLValueIndicator> %v", index, val))
+					strValues = append(strValues, fmt.Sprintf("%v: <SQLLEN> %v", index, val))
 				}
 			default:
 				strValues = append(strValues, fmt.Sprintf("%v: Unknown type: <%t>", index, val))
