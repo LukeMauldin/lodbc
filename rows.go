@@ -175,6 +175,29 @@ func (rows *rows) getField(index int) (v interface{}, ret odbc.SQLReturn) {
 			stringParts = append(stringParts, syscall.UTF16ToString(valueChunk))
 		}
 		return formatGetFieldReturn(strings.Join(stringParts, ""), odbc.SQLLEN(0), odbc.SQL_SUCCESS)
+	case odbc.SQL_VARBINARY:
+		var binaryData []byte
+		chunkSize := 4096
+		valueChunk := make([]byte, chunkSize)
+		valueChunkPtr := uintptr(unsafe.Pointer(&valueChunk[0]))
+		for {
+			ret = odbc.SQLGetData(rows.handle, odbc.SQLUSMALLINT(index), odbc.SQL_C_BINARY, valueChunkPtr, odbc.SQLLEN(chunkSize), &fieldInd)
+			if isError(ret) || odbc.SQLLEN(ret) == odbc.SQL_NULL_DATA {
+				return formatGetFieldReturn(nil, fieldInd, ret)
+			} else if ret == odbc.SQL_NO_DATA {
+				//All data has been retrieved
+				break
+			} else if ret == odbc.SQL_SUCCESS {
+				partSize := int(fieldInd) % chunkSize
+				if partSize == 0 {
+					partSize = chunkSize
+				}
+				binaryData = append(binaryData, valueChunk[0:partSize]...)
+				break
+			}
+			binaryData = append(binaryData, valueChunk...)
+		}
+		return formatGetFieldReturn(binaryData, odbc.SQLLEN(0), odbc.SQL_SUCCESS)
 	case odbc.SQL_TYPE_DATE:
 		var value odbc.SQL_DATE_STRUCT
 		valuePtr := uintptr(unsafe.Pointer(&value))

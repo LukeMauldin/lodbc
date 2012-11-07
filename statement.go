@@ -130,6 +130,28 @@ func (stmt *statement) bindString(index int, value string, length int, direction
 	return nil
 }
 
+func (stmt *statement) bindByteArray(index int, value []byte, direction ParameterDirection) error {
+	// Store both value and lenght, because we need a pointer to the lenght in
+	// the last parameter of SQLBindParamter. Otherwise the data is assumed to
+	// be a null terminated string.
+	bindVal := &struct {
+		value  []byte
+		length int
+	}{
+		value,
+		len(value),
+	}
+	sqlType := odbc.SQL_VARBINARY
+	if bindVal.length > 4000 {
+		sqlType = odbc.SQL_LONGVARBINARY
+	}
+	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_BINARY, sqlType, odbc.SQLULEN(bindVal.length), 0, odbc.SQLPOINTER(unsafe.Pointer(&bindVal.value[0])), 0, (*odbc.SQLLEN)(unsafe.Pointer(&bindVal.length)))
+	if isError(ret) {
+		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
+	}
+	return nil
+}
+
 func (stmt *statement) bindNull(index int, direction ParameterDirection) error {
 	return stmt.bindNullParam(index, odbc.SQL_WCHAR, direction)
 }
@@ -314,14 +336,13 @@ func (stmt *statement) convertToBindParameters(args []driver.Value) ([]BindParam
 			dec := gob.NewDecoder(decodedBuffer)
 			var bindParameter BindParameter
 			err := dec.Decode(&bindParameter)
-			if err != nil {
-				return nil, err
+			if err == nil {
+				bindParameters[index] = bindParameter
+				continue
 			}
-			bindParameters[index] = bindParameter
-		} else {
-			//If arg is a driver.Value, create a BindParameter
-			bindParameters[index] = BindParameter{Data: arg}
 		}
+
+		bindParameters[index] = BindParameter{Data: arg}
 	}
 	return bindParameters, nil
 }
@@ -369,6 +390,11 @@ func (stmt *statement) bindParameters(parameters []BindParameter) error {
 			}
 		case string:
 			err := stmt.bindString(index+1, value, parameter.Length, parameter.Direction)
+			if err != nil {
+				return err
+			}
+		case []byte:
+			err := stmt.bindByteArray(index+1, value, parameter.Direction)
 			if err != nil {
 				return err
 			}
