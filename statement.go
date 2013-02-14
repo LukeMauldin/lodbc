@@ -145,6 +145,15 @@ func (stmt *statement) bindByteArray(index int, value []byte, direction Paramete
 	if bindVal.length > 4000 {
 		sqlType = odbc.SQL_LONGVARBINARY
 	}
+
+	// Protect against index out of range on &bindVal.value[0] when value is zero-length.
+	// We can't pass NULL to SQLBindParameter so this is needed, it will still
+	// write a zero length value to the database since the length parameter is
+	// zero.
+	if bindVal.length == 0 {
+		bindVal.value = []byte{'\x00'}
+	}
+
 	ret := odbc.SQLBindParameter(stmt.handle, odbc.SQLUSMALLINT(index), direction.SQLBindParameterType(), odbc.SQL_C_BINARY, sqlType, odbc.SQLULEN(bindVal.length), 0, odbc.SQLPOINTER(unsafe.Pointer(&bindVal.value[0])), 0, (*odbc.SQLLEN)(unsafe.Pointer(&bindVal.length)))
 	if isError(ret) {
 		return errorStatement(stmt.handle, fmt.Sprintf("Bind index: %v, Value: %v", index, value))
